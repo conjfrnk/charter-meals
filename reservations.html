@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Meal Reservations</title>
+  <style>
+    .full { background-color: #f8d7da; }
+    .available { background-color: #d4edda; }
+    .top-right {
+      position: absolute; top: 10px; right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-right" id="userStatus"></div>
+
+  <h1>Meal Signup</h1>
+  <form id="signupForm" action="/cgi-bin/signup.py" method="POST">
+    <table id="mealTable" border="1">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Meal</th>
+          <th>Capacity</th>
+          <th>Signed Up</th>
+          <th>Reserve?</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <br>
+    <input type="submit" value="Submit Reservations">
+  </form>
+
+  <script>
+  // Show user's email in top-right (from cookie or by calling a whoami CGI)
+  function showUserEmail() {
+    // Very naive approach: parse document.cookie
+    const cookie = document.cookie
+      .split(";")
+      .map(c => c.trim())
+      .find(c => c.startsWith("email="));
+    if (cookie) {
+      const email = cookie.split("=")[1];
+      document.getElementById("userStatus").innerText = `Logged in as ${email}`;
+    } else {
+      document.getElementById("userStatus").innerText = "Not logged in";
+    }
+  }
+
+  async function loadSlots() {
+    const res = await fetch("/cgi-bin/list_slots.py");
+    const data = await res.json();
+    if (data.error === "not_logged_in") {
+      alert("You are not logged in. Redirecting...");
+      window.location = "/";
+      return;
+    }
+    const tbody = document.querySelector("#mealTable tbody");
+    tbody.innerHTML = "";
+
+    data.slots.forEach(slot => {
+      const tr = document.createElement("tr");
+      if (slot.current_count >= slot.capacity) {
+        tr.className = "full";
+      } else {
+        tr.className = "available";
+      }
+
+      // Date cell
+      const tdDate = document.createElement("td");
+      tdDate.textContent = slot.date;
+      tr.appendChild(tdDate);
+
+      // Meal cell
+      const tdMeal = document.createElement("td");
+      tdMeal.textContent = slot.meal_type;
+      tr.appendChild(tdMeal);
+
+      // Capacity
+      const tdCap = document.createElement("td");
+      tdCap.textContent = slot.capacity;
+      tr.appendChild(tdCap);
+
+      // Signed Up
+      const tdCount = document.createElement("td");
+      tdCount.textContent = slot.current_count;
+      tr.appendChild(tdCount);
+
+      // Checkbox
+      const tdCheck = document.createElement("td");
+      if (slot.current_count < slot.capacity) {
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.name = "slot_id";
+        checkbox.value = slot.id;
+        tdCheck.appendChild(checkbox);
+      } else {
+        tdCheck.textContent = "Full";
+      }
+      tr.appendChild(tdCheck);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  showUserEmail();
+  loadSlots();
+  // Optionally reload every 15 seconds
+  // setInterval(loadSlots, 15000);
+  </script>
+</body>
+</html>
