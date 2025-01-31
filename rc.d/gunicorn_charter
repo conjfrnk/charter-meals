@@ -1,0 +1,17 @@
+#!/bin/ksh
+#
+# PROVIDE: gunicorn_charter
+# REQUIRE: DAEMON
+# KEYWORDS:
+
+daemon_user="www"
+daemon_dir="/var/www/htdocs/www.chartermeals.com"
+daemon_venv="${daemon_dir}/charter_env"
+daemon="${daemon_venv}/bin/gunicorn"
+
+daemon_flags="--chdir /var/www/htdocs/www.chartermeals.com --bind 127.0.0.1:5000 app:app --workers 5"
+rc_bg=YES
+
+. /etc/rc.d/rc.subr
+
+rc_cmd $1
