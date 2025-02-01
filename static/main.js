@@ -11,29 +11,67 @@ $(document).ready(function(){
   // Update counts every 10 seconds.
   setInterval(updateCounts, 10000);
   
-  // If the meal signup form exists, attach event handlers.
-  if ($("#mealForm").length) {
-    // On form submit, update the client timestamp.
-    $("#mealForm").submit(function(e){
-      $("#client_timestamp").val(new Date().toISOString());
-    });
+  // Function to update the client timestamp.
+  function updateTimestamp() {
+    var ts = new Date().toISOString();
+    $("#client_timestamp").val(ts);
+    console.log("Timestamp updated: " + ts);
+  }
+  
+  // Function to enforce maximum selection limits.
+  // It checks the current counts and, if the newly changed checkbox causes an overflow,
+  // alerts the user and immediately unchecks that checkbox.
+  function enforceLimits(changedCheckbox) {
+    // Use .data('pub') which jQuery converts to a number if possible.
+    var pubCount = $("input[name='meal_slot'][data-pub='1']:checked").length;
+    var nonPubCount = $("input[name='meal_slot'][data-pub='0']:checked").length;
     
-    // Enforce maximum selection limits:
-    // - Maximum of 2 non-pub meals.
-    // - Maximum of 1 pub night.
-    $("input[type='checkbox'][name='meal_slot']").change(function(e){
-      var pubCount = $("input[type='checkbox'][name='meal_slot'][data-pub='1']:checked").length;
-      var nonPubCount = $("input[type='checkbox'][name='meal_slot'][data-pub='0']:checked").length;
-      if ($(this).is(':checked')) {
-        if ($(this).data('pub') == 1 && pubCount > 1) {
-          alert("You can only select 1 pub night. Please deselect the other pub night.");
-          $(this).prop('checked', false);
+    if (changedCheckbox.data('pub') === 1 && pubCount > 1) {
+      alert("You can only select 1 pub night. Please deselect the other pub night.");
+      changedCheckbox.prop('checked', false);
+      return;
+    }
+    if (changedCheckbox.data('pub') === 0 && nonPubCount > 2) {
+      alert("You can only select 2 meals. Please deselect one to select a new one.");
+      changedCheckbox.prop('checked', false);
+      return;
+    }
+    
+    // Optionally, disable unchecked checkboxes if the limit is reached.
+    $("input[name='meal_slot'][data-pub='1']").each(function(){
+      if (!$(this).is(':checked')) {
+        if ($("input[name='meal_slot'][data-pub='1']:checked").length >= 1) {
+          $(this).prop('disabled', true);
+        } else {
+          $(this).prop('disabled', false);
         }
-        if ($(this).data('pub') == 0 && nonPubCount > 2) {
-          alert("You can only select 2 meals. Please deselect one to select a new one.");
-          $(this).prop('checked', false);
+      }
+    });
+    $("input[name='meal_slot'][data-pub='0']").each(function(){
+      if (!$(this).is(':checked')) {
+        if ($("input[name='meal_slot'][data-pub='0']:checked").length >= 2) {
+          $(this).prop('disabled', true);
+        } else {
+          $(this).prop('disabled', false);
         }
       }
     });
   }
+  
+  // When a meal slot checkbox is toggled, enforce limits and update the timestamp.
+  $("input[type='checkbox'][name='meal_slot']").change(function(){
+    var $this = $(this);
+    enforceLimits($this);
+    updateTimestamp();
+  });
+  
+  // On form submission, update the timestamp one more time.
+  $("#mealForm").submit(function(e){
+    updateTimestamp();
+    console.log("Form submitted with timestamp: " + $("#client_timestamp").val());
+    // Let the form submit normally.
+  });
+  
+  // Update the timestamp on page load.
+  updateTimestamp();
 });

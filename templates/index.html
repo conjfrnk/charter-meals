@@ -4,11 +4,11 @@
 <p><a href="{{ url_for('logout') }}">Logout</a></p>
 <h3>Meal Signups for Next Week</h3>
 <form id="mealForm" method="POST" action="{{ url_for('reserve') }}">
-  <!-- The client timestamp will be captured on form submission -->
+  <!-- The client timestamp will be refreshed on load, on checkbox changes, and on submit -->
   <input type="hidden" id="client_timestamp" name="client_timestamp" value="">
   
   {% for day, slots in slots_by_date|dictsort %}
-    <h4>{{ day }}</h4>
+    <h4>{{ day }} ({{ day|dayname }})</h4>
     <ul>
       {% for slot in slots %}
         {% set is_pub = (slot.meal_type == 'dinner' and slot.date|weekday in [1,3]) %}

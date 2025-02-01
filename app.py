@@ -50,12 +50,19 @@ def init_db_command():
     print('Initialized the database.')
 
 # ---------------------------
-# Custom Template Filter
+# Custom Template Filters
 # ---------------------------
+# Existing weekday filter (returns the numeric weekday)
 @app.template_filter('weekday')
 def weekday_filter(date_str):
     d = datetime.strptime(date_str, '%Y-%m-%d').date()
     return d.weekday()  # Monday=0, Tuesday=1, ..., Sunday=6
+
+# New filter to return the full day name (e.g., "Monday")
+@app.template_filter('dayname')
+def dayname_filter(date_str):
+    d = datetime.strptime(date_str, '%Y-%m-%d').date()
+    return d.strftime('%A')
 
 # ---------------------------
 # Next Week Meal Slot Generation
@@ -149,6 +156,17 @@ def index():
     for slot in meal_slots:
         slots_by_date.setdefault(slot['date'], []).append(slot)
     
+    # For each day, sort the meal slots in proper order.
+    # For weekdays, order: breakfast (1), lunch (2), dinner (3)
+    # For weekends, order: brunch (1), dinner (2)
+    for day, slots in slots_by_date.items():
+        day_obj = datetime.strptime(day, '%Y-%m-%d').date()
+        if day_obj.weekday() < 5:
+            order = {'breakfast': 1, 'lunch': 2, 'dinner': 3}
+        else:
+            order = {'brunch': 1, 'dinner': 2}
+        slots.sort(key=lambda s: order.get(s['meal_type'], 99))
+    
     # Get the user's current reservations for next week
     cur = db.execute('''
         SELECT meal_slot_id FROM reservations r 
@@ -167,10 +185,13 @@ def reserve():
     if not client_timestamp:
         flash('Client timestamp missing.', 'danger')
         return redirect(url_for('index'))
+    # Replace any trailing "Z" with "+00:00" for ISO compliance.
+    client_timestamp = client_timestamp.replace("Z", "+00:00")
     try:
+        # Parse the client-provided timestamp
         timestamp = datetime.fromisoformat(client_timestamp)
-    except ValueError:
-        flash('Invalid timestamp format.', 'danger')
+    except ValueError as e:
+        flash('Invalid timestamp format: ' + str(e), 'danger')
         return redirect(url_for('index'))
     
     db = get_db()
@@ -210,48 +231,56 @@ def reserve():
     )
     
     error_occurred = False
+    # Process each selected meal slot
     for slot_id in selected_slots:
-        cur = db.execute('SELECT * FROM meal_slots WHERE id = ?', (slot_id,))
-        meal_slot = cur.fetchone()
-        if not meal_slot:
-            flash('Meal slot not found.', 'danger')
-            error_occurred = True
-            continue
-
-        # Check if this meal slot is already full
-        cur = db.execute('SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?', (slot_id,))
-        count = cur.fetchone()['count']
-        if count >= meal_slot['capacity']:
-            flash(f"{meal_slot['meal_type'].capitalize()} on {meal_slot['date']} is already full.", 'danger')
-            error_occurred = True
-            continue
-
-        # Check the user’s reservation limits
-        if is_pub_slot(meal_slot):
-            if pub_exists:
-                flash('You have already reserved a pub night in the last 2 weeks.', 'danger')
-                error_occurred = True
-                continue
-            pub_exists = True  # mark that a pub reservation is now being made
-        else:
-            if non_pub_count >= 2:
-                flash('You have already reserved 2 meals this week.', 'danger')
-                error_occurred = True
-                continue
-            non_pub_count += 1
-
         try:
+            cur = db.execute('SELECT * FROM meal_slots WHERE id = ?', (slot_id,))
+            meal_slot = cur.fetchone()
+            if not meal_slot:
+                flash('Meal slot not found.', 'danger')
+                error_occurred = True
+                continue
+
+            cur = db.execute('SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?', (slot_id,))
+            count = cur.fetchone()['count']
+            if count >= meal_slot['capacity']:
+                flash(f"{meal_slot['meal_type'].capitalize()} on {meal_slot['date']} is already full.", 'danger')
+                error_occurred = True
+                continue
+
+            # Check reservation limits
+            if is_pub_slot(meal_slot):
+                if pub_exists:
+                    flash('You have already reserved a pub night in the last 2 weeks.', 'danger')
+                    error_occurred = True
+                    continue
+                pub_exists = True  # mark that a pub reservation is now being made
+            else:
+                if non_pub_count >= 2:
+                    flash('You have already reserved 2 meals this week.', 'danger')
+                    error_occurred = True
+                    continue
+                non_pub_count += 1
+
+            # Insert the reservation (do not commit here)
             db.execute(
                 'INSERT INTO reservations (user_email, meal_slot_id, timestamp) VALUES (?, ?, ?)',
                 (user_email, slot_id, client_timestamp)
             )
-            db.commit()
-            flash(f"Reserved {meal_slot['meal_type']} on {meal_slot['date']}.", 'success')
-        except sqlite3.IntegrityError:
-            flash(f"You have already reserved {meal_slot['meal_type']} on {meal_slot['date']}.", 'warning')
+        except Exception as e:
+            flash(f"Error reserving slot {slot_id}: {str(e)}", 'danger')
+            error_occurred = True
+
+    # Commit all the inserts at once
+    try:
+        db.commit()
+    except Exception as e:
+        flash("Database commit failed: " + str(e), "danger")
+        return redirect(url_for('index'))
 
     if error_occurred:
         return redirect(url_for('index'))
+    flash("Reservations successful.", "success")
     return redirect(url_for('index'))
 
 @app.route('/meal_counts')
