@@ -3,37 +3,52 @@
 <h2>Admin View</h2>
 
 <h3>Upload Known Emails</h3>
-<form method="POST" enctype="multipart/form-data">
+<form method="POST" action="{{ url_for('admin_upload_emails') }}" enctype="multipart/form-data">
   <input type="file" name="emails_file" accept=".txt,.csv" required>
   <button type="submit">Upload</button>
 </form>
 
-<h3>Known Emails</h3>
+<h3>Add a Known User</h3>
+<form method="POST" action="{{ url_for('admin_add_user') }}">
+  <input type="email" name="new_user_email" placeholder="Enter email" required>
+  <button type="submit">Add User</button>
+</form>
+
+<h3>Known Users</h3>
 <ul>
   {% for user in users %}
-    <li>{{ user.email }}</li>
+    <li>
+      {{ user.email }}
+      <form method="POST" action="{{ url_for('admin_delete_user') }}" style="display:inline;">
+        <input type="hidden" name="delete_user_email" value="{{ user.email }}">
+        <button type="submit">Delete</button>
+      </form>
+    </li>
   {% endfor %}
 </ul>
 
-<h3>Reservations</h3>
-<table border="1" cellpadding="5">
-  <thead>
-    <tr>
-      <th>User Email</th>
-      <th>Date</th>
-      <th>Meal Type</th>
-      <th>Timestamp</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for res in reservations %}
-      <tr>
-        <td>{{ res.user_email }}</td>
-        <td>{{ res.date }}</td>
-        <td>{{ res.meal_type }}</td>
-        <td>{{ res.timestamp }}</td>
-      </tr>
+<h3>Meal Reservations</h3>
+{% for key, group in reservations_by_slot.items() %}
+  <h4>{{ key }}</h4>
+  <ul>
+    {% for res in group.reservations %}
+      <li>
+        {{ res.user_email }} (Signed up at: {{ res.timestamp }})
+        <form method="POST" action="{{ url_for('admin_delete_reservation', reservation_id=res.reservation_id) }}" style="display:inline;">
+          <button type="submit">Delete</button>
+        </form>
+      </li>
     {% endfor %}
-  </tbody>
-</table>
+  </ul>
+  <h5>Add Reservation for this meal slot:</h5>
+  <form method="POST" action="{{ url_for('admin_add_reservation') }}">
+    <input type="hidden" name="meal_slot_id" value="{{ group.meal_slot_id }}">
+    <input type="email" name="reservation_email" placeholder="User email" required>
+    <button type="submit">Add Reservation</button>
+  </form>
+{% endfor %}
+
+<h3>Download Meal Signups</h3>
+<a href="{{ url_for('admin_download_meal_signups') }}">Download CSV</a>
+
 {% endblock %}

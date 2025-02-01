@@ -1,12 +1,15 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, g, abort
 import sqlite3
 from datetime import datetime, date, timedelta
 from functools import wraps
+from flask import (
+    Flask, render_template, request, redirect, url_for, flash,
+    session, jsonify, g, abort, Response
+)
 
 app = Flask(__name__)
 
-# Read the secret key from secrets.txt (make sure this file is not world-readable in production)
+# Load secret key from secrets.txt
 secret_path = os.path.join(os.path.dirname(__file__), 'secrets.txt')
 try:
     with open(secret_path, 'r') as f:
@@ -24,7 +27,7 @@ def get_db():
     if 'db' not in g:
         g.db = sqlite3.connect(app.config['DATABASE'])
         g.db.row_factory = sqlite3.Row
-        # Enable foreign keys (SQLite)
+        # Enable foreign keys for SQLite
         g.db.execute("PRAGMA foreign_keys = ON;")
     return g.db
 
@@ -40,12 +43,19 @@ def init_db():
         db.executescript(f.read())
     db.commit()
 
-# Optional: enable command-line initialization with: flask init-db
 @app.cli.command('init-db')
 def init_db_command():
     """Clear existing data and create new tables."""
     init_db()
     print('Initialized the database.')
+
+# ---------------------------
+# Custom Template Filter
+# ---------------------------
+@app.template_filter('weekday')
+def weekday_filter(date_str):
+    d = datetime.strptime(date_str, '%Y-%m-%d').date()
+    return d.weekday()  # Monday=0, Tuesday=1, ..., Sunday=6
 
 # ---------------------------
 # Next Week Meal Slot Generation
@@ -58,7 +68,7 @@ def generate_next_week_meal_slots():
     """
     db = get_db()
     today = date.today()
-    # Calculate next Monday: current week's Monday + 7 days.
+    # Calculate next Monday: this week’s Monday + 7 days.
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     days = [next_monday + timedelta(days=i) for i in range(7)]
     for d in days:
@@ -98,7 +108,7 @@ def is_pub_slot(meal_slot):
     return False
 
 # ---------------------------
-# Routes
+# Routes for User Login/Signup
 # ---------------------------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -140,8 +150,11 @@ def index():
         slots_by_date.setdefault(slot['date'], []).append(slot)
     
     # Get the user's current reservations for next week
-    cur = db.execute('SELECT meal_slot_id FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id WHERE r.user_email = ? AND ms.date BETWEEN ? AND ?',
-                     (session['user_email'], next_monday.isoformat(), next_sunday.isoformat()))
+    cur = db.execute('''
+        SELECT meal_slot_id FROM reservations r 
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id 
+        WHERE r.user_email = ? AND ms.date BETWEEN ? AND ?
+    ''', (session['user_email'], next_monday.isoformat(), next_sunday.isoformat()))
     user_reservations = {row['meal_slot_id'] for row in cur.fetchall()}
     
     return render_template('index.html', slots_by_date=slots_by_date, user_reservations=user_reservations)
@@ -155,7 +168,6 @@ def reserve():
         flash('Client timestamp missing.', 'danger')
         return redirect(url_for('index'))
     try:
-        # Assume ISO-format timestamp from the client
         timestamp = datetime.fromisoformat(client_timestamp)
     except ValueError:
         flash('Invalid timestamp format.', 'danger')
@@ -164,11 +176,10 @@ def reserve():
     db = get_db()
     user_email = session['user_email']
     
-    # --- Business Rule Checks ---
+    # --- Business Rule Checks (server–side) ---
     # Rule 1: Only 2 non-pub meals per week.
     # Rule 2: Only 1 pub night (Tuesday/Thursday dinner) every 2 weeks.
     
-    # For reservations, use next week as the target week.
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
@@ -229,7 +240,6 @@ def reserve():
                 continue
             non_pub_count += 1
 
-        # Attempt to insert the reservation
         try:
             db.execute(
                 'INSERT INTO reservations (user_email, meal_slot_id, timestamp) VALUES (?, ?, ?)',
@@ -253,7 +263,7 @@ def meal_counts():
     return jsonify(counts)
 
 # ---------------------------
-# Admin View (Basic Auth)
+# Admin Routes and Endpoints
 # ---------------------------
 def check_admin_auth(username, password):
     return username == 'admin' and password == 'admin'
@@ -267,46 +277,148 @@ def admin_required(view):
         return view(**kwargs)
     return wrapped_view
 
-@app.route('/admin', methods=['GET', 'POST'])
+@app.route('/admin', methods=['GET'])
 @admin_required
 def admin():
     db = get_db()
-    # Allow admin to add known user emails via file upload (CSV or TXT; one email per line)
-    if request.method == 'POST':
-        if 'emails_file' in request.files:
-            f = request.files['emails_file']
-            if f:
-                try:
-                    content = f.read().decode('utf-8')
-                except Exception as e:
-                    flash('Error reading file.', 'danger')
-                    return redirect(url_for('admin'))
-                # Split on newlines and commas
-                lines = content.replace(',', '\n').splitlines()
-                emails = [line.strip().lower() for line in lines if line.strip()]
-                added = []
-                skipped = []
-                for email in emails:
-                    try:
-                        db.execute('INSERT INTO users (email) VALUES (?)', (email,))
-                        added.append(email)
-                    except sqlite3.IntegrityError:
-                        skipped.append(email)
-                db.commit()
-                flash(f"Added {len(added)} emails. Skipped {len(skipped)} duplicates.", "success")
-    
-    # List reservations (ordered by date)
-    cur = db.execute('''
-        SELECT r.user_email, ms.date, ms.meal_type, r.timestamp
-        FROM reservations r
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        ORDER BY ms.date
-    ''')
-    reservations = cur.fetchall()
-    # List known emails
+    # Get known users
     cur = db.execute('SELECT email FROM users ORDER BY email')
     users = cur.fetchall()
-    return render_template('admin.html', reservations=reservations, users=users)
+
+    # Get reservations grouped by meal slot
+    cur = db.execute('''
+        SELECT r.id as reservation_id, r.user_email, ms.id as meal_slot_id, ms.date, ms.meal_type, r.timestamp
+        FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        ORDER BY ms.date, ms.meal_type
+    ''')
+    reservations = cur.fetchall()
+    # Group reservations by meal slot (keyed by "date - meal_type")
+    reservations_by_slot = {}
+    for res in reservations:
+        key = f"{res['date']} - {res['meal_type']}"
+        if key not in reservations_by_slot:
+            reservations_by_slot[key] = {
+                'meal_slot_id': res['meal_slot_id'],
+                'date': res['date'],
+                'meal_type': res['meal_type'],
+                'reservations': []
+            }
+        reservations_by_slot[key]['reservations'].append(res)
+    
+    return render_template('admin.html', users=users, reservations_by_slot=reservations_by_slot)
+
+@app.route('/admin/upload_emails', methods=['POST'])
+@admin_required
+def admin_upload_emails():
+    db = get_db()
+    if 'emails_file' in request.files:
+        f = request.files['emails_file']
+        if f:
+            try:
+                content = f.read().decode('utf-8')
+            except Exception as e:
+                flash('Error reading file.', 'danger')
+                return redirect(url_for('admin'))
+            # Split on newlines and commas
+            lines = content.replace(',', '\n').splitlines()
+            emails = [line.strip().lower() for line in lines if line.strip()]
+            added = []
+            skipped = []
+            for email in emails:
+                try:
+                    db.execute('INSERT INTO users (email) VALUES (?)', (email,))
+                    added.append(email)
+                except sqlite3.IntegrityError:
+                    skipped.append(email)
+            db.commit()
+            flash(f"Added {len(added)} emails. Skipped {len(skipped)} duplicates.", "success")
+    return redirect(url_for('admin'))
+
+@app.route('/admin/add_user', methods=['POST'])
+@admin_required
+def admin_add_user():
+    db = get_db()
+    email = request.form.get('new_user_email', '').strip().lower()
+    if email:
+        try:
+            db.execute('INSERT INTO users (email) VALUES (?)', (email,))
+            db.commit()
+            flash(f"User {email} added.", "success")
+        except sqlite3.IntegrityError:
+            flash(f"User {email} already exists.", "warning")
+    else:
+        flash("No email provided.", "danger")
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete_user', methods=['POST'])
+@admin_required
+def admin_delete_user():
+    db = get_db()
+    email = request.form.get('delete_user_email', '').strip().lower()
+    if email:
+        db.execute('DELETE FROM users WHERE email = ?', (email,))
+        db.commit()
+        flash(f"User {email} deleted.", "success")
+    else:
+        flash("No email provided.", "danger")
+    return redirect(url_for('admin'))
+
+@app.route('/admin/add_reservation', methods=['POST'])
+@admin_required
+def admin_add_reservation():
+    db = get_db()
+    email = request.form.get('reservation_email', '').strip().lower()
+    meal_slot_id = request.form.get('meal_slot_id', '').strip()
+    if not email or not meal_slot_id:
+        flash("Email and meal slot are required.", "danger")
+        return redirect(url_for('admin'))
+    # Use the current timestamp
+    timestamp = datetime.now().isoformat()
+    try:
+        db.execute('INSERT INTO reservations (user_email, meal_slot_id, timestamp) VALUES (?, ?, ?)', 
+                   (email, meal_slot_id, timestamp))
+        db.commit()
+        flash(f"Reservation for {email} added to meal slot {meal_slot_id}.", "success")
+    except sqlite3.IntegrityError:
+        flash("Reservation already exists or error occurred.", "warning")
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete_reservation/<int:reservation_id>', methods=['POST'])
+@admin_required
+def admin_delete_reservation(reservation_id):
+    db = get_db()
+    db.execute('DELETE FROM reservations WHERE id = ?', (reservation_id,))
+    db.commit()
+    flash("Reservation deleted.", "success")
+    return redirect(url_for('admin'))
+
+@app.route('/admin/download_meal_signups')
+@admin_required
+def admin_download_meal_signups():
+    db = get_db()
+    cur = db.execute('''
+        SELECT ms.date, ms.meal_type, r.user_email 
+        FROM reservations r 
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        ORDER BY ms.date, ms.meal_type
+    ''')
+    rows = cur.fetchall()
+    output = []
+    current_meal = None
+    for row in rows:
+        meal = f"{row['date']} - {row['meal_type']}"
+        netid = row['user_email'].split('@')[0]
+        if current_meal != meal:
+            output.append(f"\nMeal: {meal}\n")
+            current_meal = meal
+        output.append(netid)
+    csv_content = "\n".join(output)
+    return Response(
+        csv_content,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=meal_signups.csv"}
+    )
 
 @app.errorhandler(401)
 def unauthorized(error):
@@ -314,8 +426,5 @@ def unauthorized(error):
             'You have to login with proper credentials', 401,
             {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
-# ---------------------------
-# Run the App
-# ---------------------------
 if __name__ == '__main__':
     app.run(debug=True)
