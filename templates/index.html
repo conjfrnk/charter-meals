@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Welcome, {{ session['user_email'] }}</h2>
+<p><a href="{{ url_for('logout') }}">Logout</a></p>
+<h3>Meal Signups for Next Week</h3>
+<form method="POST" action="{{ url_for('reserve') }}">
+  <!-- The client timestamp is captured when the page loads -->
+  <input type="hidden" id="client_timestamp" name="client_timestamp" value="">
+  
+  {% for day, slots in slots_by_date|dictsort %}
+    <h4>{{ day }}</h4>
+    <ul>
+      {% for slot in slots %}
+        <li>
+          <label>
+            <input type="checkbox" name="meal_slot" value="{{ slot.id }}"
+              {% if slot.id in user_reservations %} disabled{% endif %}>
+            {{ slot.meal_type.capitalize() }} -
+            <span id="count-{{ slot.id }}">0</span> reservations
+            {% if slot.id in user_reservations %}(Already reserved){% endif %}
+          </label>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endfor %}
+  <button type="submit">Submit Reservations</button>
+</form>
+
+<script>
+  // Set the client timestamp when the page loads
+  document.getElementById('client_timestamp').value = new Date().toISOString();
+</script>
+{% endblock %}
