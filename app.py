@@ -15,6 +15,7 @@ from flask import (
     abort,
     Response,
 )
+import csv, io
 
 app = Flask(__name__)
 
@@ -91,7 +92,6 @@ def generate_next_week_meal_slots():
     """
     db = get_db()
     today = date.today()
-    # Calculate next Monday: this week’s Monday + 7 days.
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     days = [next_monday + timedelta(days=i) for i in range(7)]
     for d in days:
@@ -164,6 +164,9 @@ def logout():
     return redirect(url_for("login"))
 
 
+# ---------------------------
+# User Index Page
+# ---------------------------
 @app.route("/")
 @login_required
 def index():
@@ -177,13 +180,11 @@ def index():
         (next_monday.isoformat(), next_sunday.isoformat()),
     )
     meal_slots = cur.fetchall()
-
     # Group meal slots by date
     slots_by_date = {}
     for slot in meal_slots:
         slots_by_date.setdefault(slot["date"], []).append(slot)
-
-    # For each day, sort the meal slots in the proper order.
+    # Sort slots in each day
     for day, slots in slots_by_date.items():
         day_obj = datetime.strptime(day, "%Y-%m-%d").date()
         if day_obj.weekday() < 5:
@@ -191,8 +192,7 @@ def index():
         else:
             order = {"brunch": 1, "dinner": 2}
         slots.sort(key=lambda s: order.get(s["meal_type"], 99))
-
-    # Get the user's current reservations for next week (as strings for easy comparison)
+    # Get the user's current reservations (as strings)
     cur = db.execute(
         """
         SELECT meal_slot_id FROM reservations r 
@@ -203,18 +203,39 @@ def index():
     )
     user_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
 
+    # Determine pub eligibility: if the user already has a pub night (dinner on Tue/Thu) in the last 2 weeks, they are not eligible.
+    two_weeks_ago = date.today() - timedelta(weeks=2)
+    cur = db.execute(
+        """
+        SELECT r.*, ms.date, ms.meal_type FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        WHERE r.user_email = ? AND ms.date >= ?
+    """,
+        (session["user_email"], two_weeks_ago.isoformat()),
+    )
+    pub_exists = any(
+        (
+            row["meal_type"] == "dinner"
+            and datetime.strptime(row["date"], "%Y-%m-%d").date().weekday() in [1, 3]
+        )
+        for row in cur.fetchall()
+    )
+    eligible_for_pub = not pub_exists
+
     return render_template(
-        "index.html", slots_by_date=slots_by_date, user_reservations=user_reservations
+        "index.html",
+        slots_by_date=slots_by_date,
+        user_reservations=user_reservations,
+        eligible_for_pub=eligible_for_pub,
     )
 
 
 # ---------------------------
-# Updated /reserve Route
+# Reserve Route (Update Reservations)
 # ---------------------------
 @app.route("/reserve", methods=["POST"])
 @login_required
 def reserve():
-    # Get the set of slot IDs submitted by the form (as strings)
     selected_slots = set(request.form.getlist("meal_slot"))
     client_timestamp = request.form.get("client_timestamp")
     if not client_timestamp:
@@ -317,9 +338,11 @@ def reserve():
     return redirect(url_for("index"))
 
 
+# ---------------------------
+# AJAX Endpoint for Meal Counts
+# ---------------------------
 @app.route("/meal_counts")
 def meal_counts():
-    """Return JSON with the reservation counts per meal slot."""
     db = get_db()
     cur = db.execute(
         "SELECT meal_slot_id, COUNT(*) as count FROM reservations GROUP BY meal_slot_id"
@@ -329,7 +352,7 @@ def meal_counts():
 
 
 # ---------------------------
-# Admin Routes and Password Change
+# Admin Routes and CSV Export
 # ---------------------------
 def check_admin_auth(username, password):
     # To change the admin password, modify the values below.
@@ -392,7 +415,6 @@ def admin_upload_emails():
             except Exception as e:
                 flash("Error reading file.", "danger")
                 return redirect(url_for("admin"))
-            # Split on newlines and commas
             lines = content.replace(",", "\n").splitlines()
             emails = [line.strip().lower() for line in lines if line.strip()]
             added = []
@@ -451,7 +473,6 @@ def admin_add_reservation():
     if not email or not meal_slot_id:
         flash("Email and meal slot are required.", "danger")
         return redirect(url_for("admin"))
-    # Use the current timestamp
     timestamp = datetime.now().isoformat()
     try:
         db.execute(
@@ -479,25 +500,24 @@ def admin_delete_reservation(reservation_id):
 @admin_required
 def admin_download_meal_signups():
     db = get_db()
+    # Export CSV with columns: date, meal, username (sorted by timestamp)
     cur = db.execute(
         """
-        SELECT ms.date, ms.meal_type, r.user_email 
-        FROM reservations r 
+        SELECT ms.date, ms.meal_type, r.user_email, r.timestamp
+        FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        ORDER BY ms.date, ms.meal_type
+        ORDER BY r.timestamp ASC
     """
     )
     rows = cur.fetchall()
-    output = []
-    current_meal = None
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["date", "meal", "username"])
     for row in rows:
-        meal = f"{row['date']} - {row['meal_type']}"
-        netid = row["user_email"].split("@")[0]
-        if current_meal != meal:
-            output.append(f"\nMeal: {meal}\n")
-            current_meal = meal
-        output.append(netid)
-    csv_content = "\n".join(output)
+        username = row["user_email"].split("@")[0]
+        writer.writerow([row["date"], row["meal_type"], username])
+    csv_content = output.getvalue()
+    output.close()
     return Response(
         csv_content,
         mimetype="text/csv",

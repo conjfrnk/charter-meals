@@ -1,17 +1,23 @@
 {% extends "layout.html" %}
 {% block content %}
-<h2>Admin View</h2>
+<h2>Admin Dashboard</h2>
 
 <h3>Upload Known Emails</h3>
 <form method="POST" action="{{ url_for('admin_upload_emails') }}" enctype="multipart/form-data">
   <input type="file" name="emails_file" accept=".txt,.csv" required>
-  <button type="submit">Upload</button>
+  <button type="submit">Upload Emails</button>
 </form>
 
 <h3>Add a Known User</h3>
 <form method="POST" action="{{ url_for('admin_add_user') }}">
   <input type="email" name="new_user_email" placeholder="Enter email" required>
   <button type="submit">Add User</button>
+</form>
+
+<h3>Delete a Known User</h3>
+<form method="POST" action="{{ url_for('admin_delete_user') }}">
+  <input type="email" name="delete_user_email" placeholder="Enter email to delete" required>
+  <button type="submit">Delete User</button>
 </form>
 
 <h3>Known Users</h3>
@@ -35,7 +41,7 @@
       <li>
         {{ res.user_email }} (Signed up at: {{ res.timestamp }})
         <form method="POST" action="{{ url_for('admin_delete_reservation', reservation_id=res.reservation_id) }}" style="display:inline;">
-          <button type="submit">Delete</button>
+          <button type="submit">Delete Reservation</button>
         </form>
       </li>
     {% endfor %}
@@ -48,7 +54,6 @@
   </form>
 {% endfor %}
 
-<h3>Download Meal Signups</h3>
+<h3>Download Meal Signups CSV</h3>
 <a href="{{ url_for('admin_download_meal_signups') }}">Download CSV</a>
-
 {% endblock %}
