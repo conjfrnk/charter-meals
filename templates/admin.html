@@ -66,10 +66,28 @@
 <h3>Download CSV for All Reservations</h3>
 <a href="{{ url_for('admin_download_all_meal_signups') }}">Download CSV</a>
 
+<h3>Admin Accounts</h3>
+<ul>
+  {% for admin in admin_accounts %}
+    <li>
+      {{ admin }}
+      {% if is_super_admin %}
+        {% if admin != "admin" %}
+          <form method="POST" action="{{ url_for('admin_delete_admin', username=admin) }}" style="display:inline;">
+            <button type="submit">Delete</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>
+
+{% if is_super_admin %}
 <h3>Add New Admin Account</h3>
 <form method="POST" action="{{ url_for('admin_add_admin') }}">
   <input type="text" name="new_admin_username" placeholder="New admin username" required>
   <input type="password" name="new_admin_password" placeholder="New admin password" required>
   <button type="submit">Add Admin</button>
 </form>
+{% endif %}
 {% endblock %}

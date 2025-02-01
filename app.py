@@ -207,6 +207,24 @@ def admin_add_admin():
     return redirect(url_for("admin"))
 
 
+@app.route("/admin/delete_admin/<username>", methods=["POST"])
+@admin_required
+def admin_delete_admin(username):
+    # Only the primary admin "admin" can delete admin accounts.
+    if session.get("admin_username") != "admin":
+        flash("You do not have permission to delete admin accounts.", "danger")
+        return redirect(url_for("admin"))
+    # Do not allow deletion of the primary admin account "admin"
+    if username == "admin":
+        flash("Cannot delete the primary admin account.", "danger")
+        return redirect(url_for("admin"))
+    db = get_db()
+    db.execute("DELETE FROM admins WHERE username = ?", (username,))
+    db.commit()
+    flash(f"Admin account '{username}' deleted.", "success")
+    return redirect(url_for("admin"))
+
+
 # --- End Admin Authentication System ---
 
 
@@ -236,7 +254,6 @@ def admin():
                 "reservations": [],
             }
         reservations_by_slot[key]["reservations"].append(res)
-    # Get distinct week start dates (Mondays) from meal_slots, newest first.
     cur = db.execute("SELECT DISTINCT date FROM meal_slots ORDER BY date DESC")
     dates = [
         datetime.strptime(row["date"], "%Y-%m-%d").date() for row in cur.fetchall()
@@ -246,17 +263,20 @@ def admin():
         monday = d - timedelta(days=d.weekday())
         weeks.add(monday)
     week_list = sorted(list(weeks), reverse=True)
+    cur = db.execute("SELECT username FROM admins ORDER BY username")
+    admin_accounts = [row["username"] for row in cur.fetchall()]
+    # Determine if the current admin is the primary admin "admin"
+    is_super_admin = session.get("admin_username") == "admin"
     return render_template(
         "admin.html",
         users=users,
         reservations_by_slot=reservations_by_slot,
         week_list=week_list,
+        admin_accounts=admin_accounts,
+        is_super_admin=is_super_admin,
     )
 
 
-# ---------------------------
-# User Routes
-# ---------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
