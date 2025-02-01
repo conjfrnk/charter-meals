@@ -54,6 +54,17 @@
   </form>
 {% endfor %}
 
-<h3>Download Meal Signups CSV</h3>
-<a href="{{ url_for('admin_download_meal_signups') }}">Download CSV</a>
+<h3>Download CSV for Specific Weeks (Newest on Top)</h3>
+<ul>
+  {% for week in week_list %}
+    <li>
+      Week starting {{ week.isoformat() }}:
+      <a href="{{ url_for('admin_download_meal_signups_week', week_start=week.isoformat()) }}">Download CSV</a>
+    </li>
+  {% endfor %}
+</ul>
+
+<h3>Download CSV for All Reservations</h3>
+<a href="{{ url_for('admin_download_all_meal_signups') }}">Download CSV</a>
+
 {% endblock %}

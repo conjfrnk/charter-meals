@@ -29,18 +29,14 @@ except FileNotFoundError:
         "Secret key file not found. Please create a 'secrets.txt' file with a generated secret key."
     )
 
-# Database location as specified:
+# Database location as specified
 app.config["DATABASE"] = "/var/www/data/meals.db"
 
 
-# ---------------------------
-# Database Helpers
-# ---------------------------
 def get_db():
     if "db" not in g:
         g.db = sqlite3.connect(app.config["DATABASE"])
         g.db.row_factory = sqlite3.Row
-        # Enable foreign keys for SQLite
         g.db.execute("PRAGMA foreign_keys = ON;")
     return g.db
 
@@ -66,13 +62,10 @@ def init_db_command():
     print("Initialized the database.")
 
 
-# ---------------------------
-# Custom Template Filters
-# ---------------------------
 @app.template_filter("weekday")
 def weekday_filter(date_str):
     d = datetime.strptime(date_str, "%Y-%m-%d").date()
-    return d.weekday()  # Monday=0, Tuesday=1, ..., Sunday=6
+    return d.weekday()
 
 
 @app.template_filter("dayname")
@@ -81,15 +74,7 @@ def dayname_filter(date_str):
     return d.strftime("%A")
 
 
-# ---------------------------
-# Next Week Meal Slot Generation
-# ---------------------------
 def generate_next_week_meal_slots():
-    """
-    Generate meal slots for the next week (Monday to Sunday).
-    For weekdays (Mon-Fri): breakfast, lunch, dinner.
-    For weekends (Sat-Sun): brunch, dinner.
-    """
     db = get_db()
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
@@ -113,9 +98,6 @@ def generate_next_week_meal_slots():
     db.commit()
 
 
-# ---------------------------
-# Helper: Login Required
-# ---------------------------
 def login_required(view):
     @wraps(view)
     def wrapped_view(**kwargs):
@@ -126,21 +108,11 @@ def login_required(view):
     return wrapped_view
 
 
-# ---------------------------
-# Helper: Is This a Pub Slot?
-# ---------------------------
 def is_pub_slot(meal_slot):
-    """
-    Returns True if the given meal slot is a pub night.
-    For this app, dinner on Tuesday (weekday==1) or Thursday (weekday==3) is a pub night.
-    """
     slot_date = datetime.strptime(meal_slot["date"], "%Y-%m-%d").date()
     return meal_slot["meal_type"] == "dinner" and slot_date.weekday() in [1, 3]
 
 
-# ---------------------------
-# Routes for User Login/Signup
-# ---------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -164,9 +136,6 @@ def logout():
     return redirect(url_for("login"))
 
 
-# ---------------------------
-# User Index Page
-# ---------------------------
 @app.route("/")
 @login_required
 def index():
@@ -180,11 +149,9 @@ def index():
         (next_monday.isoformat(), next_sunday.isoformat()),
     )
     meal_slots = cur.fetchall()
-    # Group meal slots by date
     slots_by_date = {}
     for slot in meal_slots:
         slots_by_date.setdefault(slot["date"], []).append(slot)
-    # Sort slots in each day
     for day, slots in slots_by_date.items():
         day_obj = datetime.strptime(day, "%Y-%m-%d").date()
         if day_obj.weekday() < 5:
@@ -192,26 +159,26 @@ def index():
         else:
             order = {"brunch": 1, "dinner": 2}
         slots.sort(key=lambda s: order.get(s["meal_type"], 99))
-    # Get the user's current reservations (as strings)
     cur = db.execute(
         """
         SELECT meal_slot_id FROM reservations r 
         JOIN meal_slots ms ON r.meal_slot_id = ms.id 
         WHERE r.user_email = ? AND ms.date BETWEEN ? AND ?
-    """,
+        """,
         (session["user_email"], next_monday.isoformat(), next_sunday.isoformat()),
     )
     user_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
 
-    # Determine pub eligibility: if the user already has a pub night (dinner on Tue/Thu) in the last 2 weeks, they are not eligible.
-    two_weeks_ago = date.today() - timedelta(weeks=2)
+    # Determine pub eligibility based on current week.
+    this_monday = date.today() - timedelta(days=date.today().weekday())
+    this_sunday = this_monday + timedelta(days=6)
     cur = db.execute(
         """
         SELECT r.*, ms.date, ms.meal_type FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        WHERE r.user_email = ? AND ms.date >= ?
-    """,
-        (session["user_email"], two_weeks_ago.isoformat()),
+        WHERE r.user_email = ? AND ms.date BETWEEN ? AND ?
+        """,
+        (session["user_email"], this_monday.isoformat(), this_sunday.isoformat()),
     )
     pub_exists = any(
         (
@@ -230,9 +197,6 @@ def index():
     )
 
 
-# ---------------------------
-# Reserve Route (Update Reservations)
-# ---------------------------
 @app.route("/reserve", methods=["POST"])
 @login_required
 def reserve():
@@ -250,7 +214,6 @@ def reserve():
     db = get_db()
     user_email = session["user_email"]
 
-    # Get current reservations for next week (as strings)
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
@@ -259,35 +222,28 @@ def reserve():
         SELECT meal_slot_id FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
         WHERE r.user_email = ? AND ms.date BETWEEN ? AND ?
-    """,
+        """,
         (user_email, next_monday.isoformat(), next_sunday.isoformat()),
     )
     current_reservations = set(str(row["meal_slot_id"]) for row in cur.fetchall())
-
     to_delete = current_reservations - selected_slots
     to_add = selected_slots - current_reservations
 
-    # Validate final selection against business rules.
-    final_non_pub = 0
-    final_pub = 0
+    # Enforce: no more than 2 total selections.
+    if len(selected_slots) > 2:
+        flash("You cannot select more than 2 meals per week.", "danger")
+        return redirect(url_for("index"))
+    # Enforce: at most 1 pub night.
+    pub_count = 0
     for slot_id in selected_slots:
         cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
         meal_slot = cur.fetchone()
-        if not meal_slot:
-            flash(f"Meal slot {slot_id} not found.", "danger")
-            return redirect(url_for("index"))
-        if is_pub_slot(meal_slot):
-            final_pub += 1
-        else:
-            final_non_pub += 1
-    if final_non_pub > 2:
-        flash("You cannot have more than 2 non-pub meals.", "danger")
-        return redirect(url_for("index"))
-    if final_pub > 1:
-        flash("You cannot have more than 1 pub night.", "danger")
+        if meal_slot and is_pub_slot(meal_slot):
+            pub_count += 1
+    if pub_count > 1:
+        flash("You cannot select more than 1 pub night.", "danger")
         return redirect(url_for("index"))
 
-    # Check capacity for each slot in to_add.
     for slot_id in to_add:
         cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
         meal_slot = cur.fetchone()
@@ -306,7 +262,6 @@ def reserve():
             )
             return redirect(url_for("index"))
 
-    # Remove reservations that were deselected.
     for slot_id in to_delete:
         try:
             db.execute(
@@ -317,7 +272,6 @@ def reserve():
             flash(f"Error deleting reservation for slot {slot_id}: {str(e)}", "danger")
             return redirect(url_for("index"))
 
-    # Add new reservations.
     for slot_id in to_add:
         try:
             db.execute(
@@ -338,9 +292,6 @@ def reserve():
     return redirect(url_for("index"))
 
 
-# ---------------------------
-# AJAX Endpoint for Meal Counts
-# ---------------------------
 @app.route("/meal_counts")
 def meal_counts():
     db = get_db()
@@ -351,11 +302,7 @@ def meal_counts():
     return jsonify(counts)
 
 
-# ---------------------------
-# Admin Routes and CSV Export
-# ---------------------------
 def check_admin_auth(username, password):
-    # To change the admin password, modify the values below.
     ADMIN_USERNAME = "admin"
     ADMIN_PASSWORD = "admin"  # Change this to your new password.
     return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
@@ -384,7 +331,7 @@ def admin():
         FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
         ORDER BY ms.date, ms.meal_type
-    """
+        """
     )
     reservations = cur.fetchall()
     reservations_by_slot = {}
@@ -398,8 +345,85 @@ def admin():
                 "reservations": [],
             }
         reservations_by_slot[key]["reservations"].append(res)
+    # Get distinct week start dates (Mondays) from meal_slots, newest first.
+    cur = db.execute("SELECT DISTINCT date FROM meal_slots ORDER BY date DESC")
+    dates = [
+        datetime.strptime(row["date"], "%Y-%m-%d").date() for row in cur.fetchall()
+    ]
+    weeks = set()
+    for d in dates:
+        monday = d - timedelta(days=d.weekday())
+        weeks.add(monday)
+    week_list = sorted(list(weeks), reverse=True)
     return render_template(
-        "admin.html", users=users, reservations_by_slot=reservations_by_slot
+        "admin.html",
+        users=users,
+        reservations_by_slot=reservations_by_slot,
+        week_list=week_list,
+    )
+
+
+@app.route("/admin/download_meal_signups/<week_start>")
+@admin_required
+def admin_download_meal_signups_week(week_start):
+    db = get_db()
+    week_start_date = datetime.strptime(week_start, "%Y-%m-%d").date()
+    week_end_date = week_start_date + timedelta(days=6)
+    cur = db.execute(
+        """
+        SELECT ms.date, ms.meal_type, r.user_email, r.timestamp
+        FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        WHERE ms.date BETWEEN ? AND ?
+        ORDER BY r.timestamp ASC
+        """,
+        (week_start_date.isoformat(), week_end_date.isoformat()),
+    )
+    rows = cur.fetchall()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["date", "meal", "username"])
+    for row in rows:
+        username = row["user_email"].split("@")[0]
+        writer.writerow([row["date"], row["meal_type"], username])
+    csv_content = output.getvalue()
+    output.close()
+    return Response(
+        csv_content,
+        mimetype="text/csv",
+        headers={
+            "Content-disposition": "attachment; filename=meal_signups_"
+            + week_start
+            + ".csv"
+        },
+    )
+
+
+@app.route("/admin/download_all_meal_signups")
+@admin_required
+def admin_download_all_meal_signups():
+    db = get_db()
+    cur = db.execute(
+        """
+        SELECT ms.date, ms.meal_type, r.user_email, r.timestamp
+        FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        ORDER BY r.timestamp ASC
+        """
+    )
+    rows = cur.fetchall()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["date", "meal", "username"])
+    for row in rows:
+        username = row["user_email"].split("@")[0]
+        writer.writerow([row["date"], row["meal_type"], username])
+    csv_content = output.getvalue()
+    output.close()
+    return Response(
+        csv_content,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=meal_signups_all.csv"},
     )
 
 
@@ -494,35 +518,6 @@ def admin_delete_reservation(reservation_id):
     db.commit()
     flash("Reservation deleted.", "success")
     return redirect(url_for("admin"))
-
-
-@app.route("/admin/download_meal_signups")
-@admin_required
-def admin_download_meal_signups():
-    db = get_db()
-    # Export CSV with columns: date, meal, username (sorted by timestamp)
-    cur = db.execute(
-        """
-        SELECT ms.date, ms.meal_type, r.user_email, r.timestamp
-        FROM reservations r
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        ORDER BY r.timestamp ASC
-    """
-    )
-    rows = cur.fetchall()
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["date", "meal", "username"])
-    for row in rows:
-        username = row["user_email"].split("@")[0]
-        writer.writerow([row["date"], row["meal_type"], username])
-    csv_content = output.getvalue()
-    output.close()
-    return Response(
-        csv_content,
-        mimetype="text/csv",
-        headers={"Content-disposition": "attachment; filename=meal_signups.csv"},
-    )
 
 
 @app.errorhandler(401)

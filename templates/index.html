@@ -9,6 +9,16 @@
   </div>
 {% endif %}
 
+<div id="rules">
+  <h3>Rules for Meal Sign-Up</h3>
+  <ul>
+    <li>You can sign up for a maximum of 2 meals per week (pub nights count as one meal).</li>
+    <li>You may sign up for at most 1 pub night (dinner on Tuesday or Thursday).</li>
+    <li>You are ineligible for pub nights for next week if you attended a pub night during the current week.</li>
+    <li>If a meal time is full, it will be grayed out and unselectable.</li>
+  </ul>
+</div>
+
 <h3>Meal Signups for Next Week</h3>
 <form id="mealForm" method="POST" action="{{ url_for('reserve') }}">
   <input type="hidden" id="client_timestamp" name="client_timestamp" value="">
@@ -23,7 +33,7 @@
                    data-pub="{{ 1 if is_pub else 0 }}"
                    data-capacity="{{ slot.capacity }}"
                    {% if slot.id|string in user_reservations %} checked {% endif %}
-                   {% if slot.meal_type == 'dinner' and slot.date|weekday in [1,3] and not eligible_for_pub and (slot.id|string not in user_reservations) %} disabled class="not-eligible" {% endif %}>
+                   {% if is_pub and not eligible_for_pub and (slot.id|string not in user_reservations) %} disabled class="not-eligible" {% endif %}>
             {{ slot.meal_type.capitalize() }} -
             <span id="count-{{ slot.id }}" data-capacity="{{ slot.capacity }}">0/{{ slot.capacity }} reservations</span>
           </label>
