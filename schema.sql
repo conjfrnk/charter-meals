@@ -1,6 +1,7 @@
 DROP TABLE IF EXISTS reservations;
 DROP TABLE IF EXISTS meal_slots;
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS admins;
 
 CREATE TABLE IF NOT EXISTS users (
     email TEXT PRIMARY KEY
@@ -22,4 +23,10 @@ CREATE TABLE IF NOT EXISTS reservations (
     FOREIGN KEY(user_email) REFERENCES users(email),
     FOREIGN KEY(meal_slot_id) REFERENCES meal_slots(id),
     UNIQUE(user_email, meal_slot_id)
+);
+
+CREATE TABLE IF NOT EXISTS admins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
 );

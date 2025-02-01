@@ -1,5 +1,10 @@
 {% extends "layout.html" %}
 {% block content %}
+<div style="position: absolute; top: 10px; right: 10px; text-align: right;">
+  Logged in as Admin: {{ session['admin_username'] }}<br>
+  <a href="{{ url_for('admin_change_password') }}">Change Password</a><br>
+  <a href="{{ url_for('admin_logout') }}">Logout</a>
+</div>
 <h2>Admin Dashboard</h2>
 
 <h3>Upload Known Emails</h3>
@@ -46,12 +51,6 @@
       </li>
     {% endfor %}
   </ul>
-  <h5>Add Reservation for this meal slot:</h5>
-  <form method="POST" action="{{ url_for('admin_add_reservation') }}">
-    <input type="hidden" name="meal_slot_id" value="{{ group.meal_slot_id }}">
-    <input type="email" name="reservation_email" placeholder="User email" required>
-    <button type="submit">Add Reservation</button>
-  </form>
 {% endfor %}
 
 <h3>Download CSV for Specific Weeks (Newest on Top)</h3>
@@ -67,4 +66,10 @@
 <h3>Download CSV for All Reservations</h3>
 <a href="{{ url_for('admin_download_all_meal_signups') }}">Download CSV</a>
 
+<h3>Add New Admin Account</h3>
+<form method="POST" action="{{ url_for('admin_add_admin') }}">
+  <input type="text" name="new_admin_username" placeholder="New admin username" required>
+  <input type="password" name="new_admin_password" placeholder="New admin password" required>
+  <button type="submit">Add Admin</button>
+</form>
 {% endblock %}

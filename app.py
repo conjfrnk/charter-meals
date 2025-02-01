@@ -16,6 +16,7 @@ from flask import (
     Response,
 )
 import csv, io
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
@@ -33,6 +34,9 @@ except FileNotFoundError:
 app.config["DATABASE"] = "/var/www/data/meals.db"
 
 
+# ---------------------------
+# Database Helpers
+# ---------------------------
 def get_db():
     if "db" not in g:
         g.db = sqlite3.connect(app.config["DATABASE"])
@@ -62,6 +66,9 @@ def init_db_command():
     print("Initialized the database.")
 
 
+# ---------------------------
+# Template Filters
+# ---------------------------
 @app.template_filter("weekday")
 def weekday_filter(date_str):
     d = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -74,6 +81,9 @@ def dayname_filter(date_str):
     return d.strftime("%A")
 
 
+# ---------------------------
+# Application Helpers
+# ---------------------------
 def generate_next_week_meal_slots():
     db = get_db()
     today = date.today()
@@ -108,11 +118,145 @@ def login_required(view):
     return wrapped_view
 
 
-def is_pub_slot(meal_slot):
-    slot_date = datetime.strptime(meal_slot["date"], "%Y-%m-%d").date()
-    return meal_slot["meal_type"] == "dinner" and slot_date.weekday() in [1, 3]
+# ---------------------------
+# Admin Authentication System
+# ---------------------------
+def admin_required(view):
+    @wraps(view)
+    def wrapped_view(**kwargs):
+        if "admin_username" not in session:
+            return redirect(url_for("admin_login"))
+        return view(**kwargs)
+
+    return wrapped_view
 
 
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        username = request.form["username"].strip()
+        password = request.form["password"].strip()
+        db = get_db()
+        cur = db.execute("SELECT * FROM admins WHERE username = ?", (username,))
+        admin = cur.fetchone()
+        if admin and check_password_hash(admin["password"], password):
+            session["admin_username"] = username
+            flash("Admin logged in successfully.", "success")
+            return redirect(url_for("admin"))
+        else:
+            flash("Invalid admin credentials.", "danger")
+    return render_template("admin_login.html")
+
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("admin_username", None)
+    flash("Admin logged out.", "info")
+    return redirect(url_for("admin_login"))
+
+
+@app.route("/admin/change_password", methods=["GET", "POST"])
+@admin_required
+def admin_change_password():
+    if request.method == "POST":
+        current = request.form["current_password"].strip()
+        new_pass = request.form["new_password"].strip()
+        confirm = request.form["confirm_password"].strip()
+        if new_pass != confirm:
+            flash("New passwords do not match.", "danger")
+            return redirect(url_for("admin_change_password"))
+        db = get_db()
+        cur = db.execute(
+            "SELECT * FROM admins WHERE username = ?", (session["admin_username"],)
+        )
+        admin = cur.fetchone()
+        if admin and check_password_hash(admin["password"], current):
+            new_hash = generate_password_hash(new_pass)
+            db.execute(
+                "UPDATE admins SET password = ? WHERE username = ?",
+                (new_hash, session["admin_username"]),
+            )
+            db.commit()
+            flash("Password updated successfully.", "success")
+            return redirect(url_for("admin"))
+        else:
+            flash("Current password is incorrect.", "danger")
+            return redirect(url_for("admin_change_password"))
+    return render_template("admin_change_password.html")
+
+
+@app.route("/admin/add_admin", methods=["POST"])
+@admin_required
+def admin_add_admin():
+    username = request.form.get("new_admin_username", "").strip()
+    password = request.form.get("new_admin_password", "").strip()
+    if not username or not password:
+        flash("Username and password are required for new admin.", "danger")
+        return redirect(url_for("admin"))
+    db = get_db()
+    try:
+        password_hash = generate_password_hash(password)
+        db.execute(
+            "INSERT INTO admins (username, password) VALUES (?, ?)",
+            (username, password_hash),
+        )
+        db.commit()
+        flash(f"Admin account '{username}' created successfully.", "success")
+    except sqlite3.IntegrityError:
+        flash("Admin account already exists.", "warning")
+    return redirect(url_for("admin"))
+
+
+# --- End Admin Authentication System ---
+
+
+@app.route("/admin", methods=["GET"])
+@admin_required
+def admin():
+    db = get_db()
+    cur = db.execute("SELECT email FROM users ORDER BY email")
+    users = cur.fetchall()
+    cur = db.execute(
+        """
+        SELECT r.id as reservation_id, r.user_email, ms.id as meal_slot_id, ms.date, ms.meal_type, r.timestamp
+        FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        ORDER BY ms.date, ms.meal_type
+        """
+    )
+    reservations = cur.fetchall()
+    reservations_by_slot = {}
+    for res in reservations:
+        key = f"{res['date']} - {res['meal_type']}"
+        if key not in reservations_by_slot:
+            reservations_by_slot[key] = {
+                "meal_slot_id": res["meal_slot_id"],
+                "date": res["date"],
+                "meal_type": res["meal_type"],
+                "reservations": [],
+            }
+        reservations_by_slot[key]["reservations"].append(res)
+    # Get distinct week start dates (Mondays) from meal_slots, newest first.
+    cur = db.execute("SELECT DISTINCT date FROM meal_slots ORDER BY date DESC")
+    dates = [
+        datetime.strptime(row["date"], "%Y-%m-%d").date() for row in cur.fetchall()
+    ]
+    weeks = set()
+    for d in dates:
+        monday = d - timedelta(days=d.weekday())
+        weeks.add(monday)
+    week_list = sorted(list(weeks), reverse=True)
+    return render_template(
+        "admin.html",
+        users=users,
+        reservations_by_slot=reservations_by_slot,
+        week_list=week_list,
+    )
+
+
+# ---------------------------
+# User Routes
+# ---------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -168,8 +312,6 @@ def index():
         (session["user_email"], next_monday.isoformat(), next_sunday.isoformat()),
     )
     user_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
-
-    # Determine pub eligibility based on current week.
     this_monday = date.today() - timedelta(days=date.today().weekday())
     this_sunday = this_monday + timedelta(days=6)
     cur = db.execute(
@@ -188,7 +330,6 @@ def index():
         for row in cur.fetchall()
     )
     eligible_for_pub = not pub_exists
-
     return render_template(
         "index.html",
         slots_by_date=slots_by_date,
@@ -213,7 +354,6 @@ def reserve():
         return redirect(url_for("index"))
     db = get_db()
     user_email = session["user_email"]
-
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
@@ -228,12 +368,9 @@ def reserve():
     current_reservations = set(str(row["meal_slot_id"]) for row in cur.fetchall())
     to_delete = current_reservations - selected_slots
     to_add = selected_slots - current_reservations
-
-    # Enforce: no more than 2 total selections.
     if len(selected_slots) > 2:
         flash("You cannot select more than 2 meals per week.", "danger")
         return redirect(url_for("index"))
-    # Enforce: at most 1 pub night.
     pub_count = 0
     for slot_id in selected_slots:
         cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
@@ -243,7 +380,6 @@ def reserve():
     if pub_count > 1:
         flash("You cannot select more than 1 pub night.", "danger")
         return redirect(url_for("index"))
-
     for slot_id in to_add:
         cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
         meal_slot = cur.fetchone()
@@ -261,7 +397,6 @@ def reserve():
                 "danger",
             )
             return redirect(url_for("index"))
-
     for slot_id in to_delete:
         try:
             db.execute(
@@ -271,7 +406,6 @@ def reserve():
         except Exception as e:
             flash(f"Error deleting reservation for slot {slot_id}: {str(e)}", "danger")
             return redirect(url_for("index"))
-
     for slot_id in to_add:
         try:
             db.execute(
@@ -281,13 +415,11 @@ def reserve():
         except Exception as e:
             flash(f"Error adding reservation for slot {slot_id}: {str(e)}", "danger")
             return redirect(url_for("index"))
-
     try:
         db.commit()
     except Exception as e:
         flash("Database commit failed: " + str(e), "danger")
         return redirect(url_for("index"))
-
     flash("Reservations updated successfully.", "success")
     return redirect(url_for("index"))
 
@@ -300,67 +432,6 @@ def meal_counts():
     )
     counts = {str(row["meal_slot_id"]): row["count"] for row in cur.fetchall()}
     return jsonify(counts)
-
-
-def check_admin_auth(username, password):
-    ADMIN_USERNAME = "admin"
-    ADMIN_PASSWORD = "admin"  # Change this to your new password.
-    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
-
-
-def admin_required(view):
-    @wraps(view)
-    def wrapped_view(**kwargs):
-        auth = request.authorization
-        if not auth or not check_admin_auth(auth.username, auth.password):
-            return abort(401)
-        return view(**kwargs)
-
-    return wrapped_view
-
-
-@app.route("/admin", methods=["GET"])
-@admin_required
-def admin():
-    db = get_db()
-    cur = db.execute("SELECT email FROM users ORDER BY email")
-    users = cur.fetchall()
-    cur = db.execute(
-        """
-        SELECT r.id as reservation_id, r.user_email, ms.id as meal_slot_id, ms.date, ms.meal_type, r.timestamp
-        FROM reservations r
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        ORDER BY ms.date, ms.meal_type
-        """
-    )
-    reservations = cur.fetchall()
-    reservations_by_slot = {}
-    for res in reservations:
-        key = f"{res['date']} - {res['meal_type']}"
-        if key not in reservations_by_slot:
-            reservations_by_slot[key] = {
-                "meal_slot_id": res["meal_slot_id"],
-                "date": res["date"],
-                "meal_type": res["meal_type"],
-                "reservations": [],
-            }
-        reservations_by_slot[key]["reservations"].append(res)
-    # Get distinct week start dates (Mondays) from meal_slots, newest first.
-    cur = db.execute("SELECT DISTINCT date FROM meal_slots ORDER BY date DESC")
-    dates = [
-        datetime.strptime(row["date"], "%Y-%m-%d").date() for row in cur.fetchall()
-    ]
-    weeks = set()
-    for d in dates:
-        monday = d - timedelta(days=d.weekday())
-        weeks.add(monday)
-    week_list = sorted(list(weeks), reverse=True)
-    return render_template(
-        "admin.html",
-        users=users,
-        reservations_by_slot=reservations_by_slot,
-        week_list=week_list,
-    )
 
 
 @app.route("/admin/download_meal_signups/<week_start>")
@@ -522,12 +593,7 @@ def admin_delete_reservation(reservation_id):
 
 @app.errorhandler(401)
 def unauthorized(error):
-    return (
-        "Could not verify your access level for that URL.\n"
-        "You have to login with proper credentials",
-        401,
-        {"WWW-Authenticate": 'Basic realm="Login Required"'},
-    )
+    return redirect(url_for("admin_login"))
 
 
 if __name__ == "__main__":
