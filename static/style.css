@@ -1,11 +1,21 @@
-body {
-  font-family: Arial, sans-serif;
+/* Global Reset */
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  background-color: #f8f8f8;
-  color: #333;
 }
 
+/* Base Styles */
+body {
+  font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  background-color: #f8f8f8;
+  color: #333;
+  padding-bottom: 60px; /* Ensure content doesn't overlap the footer */
+}
+
+/* Links */
 a {
   color: #C5A144;  /* Yellow for links */
   text-decoration: none;
@@ -15,15 +25,32 @@ a:hover {
   text-decoration: underline;
 }
 
+/* Header Styles are set in layout.html inline */
+
+/* Content Area */
+.content {
+  margin-top: 80px;
+  padding: 20px;
+}
+
+/* Ensure list styling is preserved */
+ul {
+  list-style: disc;
+  margin-left: 20px;
+  padding-left: 20px;
+}
+
+/* Flash Messages */
 #messages {
   list-style: none;
   padding: 0;
+  margin-bottom: 20px;
 }
 
 #messages li {
-  padding: 5px;
-  margin: 5px 0;
-  border-radius: 3px;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
 }
 
 #messages li.success {
@@ -36,9 +63,36 @@ a:hover {
   color: #721c24;
 }
 
+/* Footer: Full Width */
 footer {
-  margin-top: 50px;
-  padding: 10px;
-  background-color: #561C1D;
+  width: 100%;
+  background-color: #561C1D; /* Maroon */
   color: #fff;
+  text-align: center;
+  padding: 10px 0;
+  margin-top: 50px;
+}
+
+/* Responsive Adjustments for Mobile Devices */
+@media (max-width: 600px) {
+  body {
+    font-size: 18px;
+  }
+  
+  header h1 {
+    font-size: 20px;
+  }
+  
+  .nav {
+    font-size: 14px;
+  }
+  
+  .content {
+    padding: 15px;
+  }
+  
+  footer {
+    font-size: 14px;
+    padding: 15px 0;
+  }
 }
