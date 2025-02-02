@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <title>Charter Meals</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- Set favicon to your pcc_logo.png -->
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='pcc_logo.png') }}">
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <style>
     /* Pinned header styles */
@@ -13,39 +14,50 @@
       top: 0;
       left: 0;
       right: 0;
-      background: #fff;
+      background: #561C1D;  /* Maroon */
       border-bottom: 1px solid #ccc;
       z-index: 1000;
       padding: 10px;
+      display: flex;
+      align-items: center;
     }
     header h1 {
       margin: 0;
       font-size: 24px;
-      display: inline-block;
+      color: #fff;
+      margin-left: 10px;
+    }
+    header .logo {
+      height: 50px;
+      width: auto;
     }
     header .nav {
-      float: right;
+      margin-left: auto;
       text-align: right;
+      color: #fff;
     }
     .content {
       margin-top: 80px;
+      padding: 0 20px;
     }
   </style>
 </head>
 <body>
   <header>
+    <!-- Display logo -->
+    <img class="logo" src="{{ url_for('static', filename='pcc_logo.png') }}" alt="Logo">
     <h1>Charter Meals</h1>
     <div class="nav">
       {% if request.path.startswith('/admin') %}
         {% if session.get('admin_username') %}
           Logged in as Admin: {{ session['admin_username'] }} | 
-          <a href="{{ url_for('admin_change_password') }}">Change Password</a> | 
-          <a href="{{ url_for('admin_logout') }}">Logout</a>
+          <a href="{{ url_for('admin_change_password') }}" style="color: #C5A144;">Change Password</a> | 
+          <a href="{{ url_for('admin_logout') }}" style="color: #C5A144;">Logout</a>
         {% endif %}
       {% else %}
         {% if session.get('netid') %}
           Logged in as: {{ session['netid'] }} | 
-          <a href="{{ url_for('logout') }}">Logout</a>
+          <a href="{{ url_for('logout') }}" style="color: #C5A144;">Logout</a>
         {% endif %}
       {% endif %}
     </div>

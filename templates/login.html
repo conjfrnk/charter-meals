@@ -2,7 +2,6 @@
 {% block content %}
 <h2>Login</h2>
 <form method="POST" action="{{ url_for('login') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="netid">NetID:</label>
   <input type="text" name="netid" id="netid" placeholder="NetID" required pattern="[a-z]{2}\d{4}">
   <button type="submit">Login</button>
@@ -12,7 +11,7 @@
   <button type="submit">Proceed as Guest</button>
 </form>
 <footer style="margin-top: 50px; text-align: center;">
-  Created by <a href="https://conjfrnk.com" target="_blank">Connor Frank</a>, the Charter House Manager -- 
-  <a href="https://github.com/conjfrnk/charter-meals" target="_blank">GitHub</a>
+  Created by <a href="https://conjfrnk.com" target="_blank" style="color: #C5A144;">Connor Frank</a>, the Charter House Manager -- 
+  <a href="https://github.com/conjfrnk/charter-meals" target="_blank" style="color: #C5A144;">GitHub</a>
 </footer>
 {% endblock %}

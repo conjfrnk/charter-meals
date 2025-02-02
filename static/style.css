@@ -1,6 +1,18 @@
 body {
   font-family: Arial, sans-serif;
-  margin: 20px;
+  margin: 0;
+  padding: 0;
+  background-color: #f8f8f8;
+  color: #333;
+}
+
+a {
+  color: #C5A144;  /* Yellow for links */
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }
 
 #messages {
@@ -8,20 +20,25 @@ body {
   padding: 0;
 }
 
-#messages li.success { color: green; }
-#messages li.danger { color: red; }
-#messages li.warning { color: orange; }
-
-.full, .not-eligible {
-  color: gray;
+#messages li {
+  padding: 5px;
+  margin: 5px 0;
+  border-radius: 3px;
 }
 
-/* Optional: styling for tables and forms */
-table {
-  border-collapse: collapse;
+#messages li.success {
+  background-color: #d4edda;
+  color: #155724;
 }
 
-table th, table td {
-  padding: 8px;
-  border: 1px solid #ccc;
+#messages li.danger {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+footer {
+  margin-top: 50px;
+  padding: 10px;
+  background-color: #561C1D;
+  color: #fff;
 }
