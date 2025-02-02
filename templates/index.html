@@ -1,9 +1,5 @@
 {% extends "layout.html" %}
 {% block content %}
-<div style="position: absolute; top: 10px; right: 10px; text-align: right;">
-  Logged in as: {{ session['user_email'] }}<br>
-  <a href="{{ url_for('logout') }}">Logout</a>
-</div>
 <h2>Welcome to Charter Meals!</h2>
 <p>
   We can't wait to see you at Charter meals! Sign up below so we have a sense of how many people are coming to each meal.
@@ -31,7 +27,12 @@
 {% if current_meals %}
   <ul>
     {% for meal in current_meals %}
-      <li>{{ meal.date }} - {{ meal.meal_type|capitalize }}{% if meal.meal_type|lower == "dinner" and (meal.date|weekday in [1,3]) %} (pub night){% endif %}</li>
+      <li>
+        {{ meal.date }} - {{ meal.meal_type|capitalize }}
+        {% if meal.meal_type|lower == "dinner" and (meal.date|weekday in [1,3]) %}
+          (pub night)
+        {% endif %}
+      </li>
     {% endfor %}
   </ul>
 {% else %}
@@ -65,6 +66,15 @@
       {% endfor %}
     </ul>
   {% endfor %}
-  <button type="submit">Submit Reservations</button>
+  {% if session["user_email"] == "guest" %}
+    <p style="color: red; font-weight: bold;">Guest users cannot submit reservations.</p>
+    <button type="submit" disabled>Submit Reservations</button>
+  {% else %}
+    <button type="submit">Submit Reservations</button>
+  {% endif %}
 </form>
+
+<footer style="margin-top: 50px; text-align: center;">
+  Created by <a href="https://conjfrnk.com" target="_blank">Connor Frank</a>, the Charter House Manager -- <a href="https://github.com/conjfrnk/charter-meals" target="_blank">GitHub</a>
+</footer>
 {% endblock %}

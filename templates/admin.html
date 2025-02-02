@@ -1,10 +1,5 @@
 {% extends "layout.html" %}
 {% block content %}
-<div style="position: absolute; top: 10px; right: 10px; text-align: right;">
-  Logged in as Admin: {{ session['admin_username'] }}<br>
-  <a href="{{ url_for('admin_change_password') }}">Change Password</a><br>
-  <a href="{{ url_for('admin_logout') }}">Logout</a>
-</div>
 <h2>Admin Dashboard</h2>
 
 <h3>Upload Known Emails</h3>

@@ -109,7 +109,6 @@ def generate_next_week_meal_slots():
 
 
 def is_pub_slot(meal_slot):
-    """Return True if the meal slot is a pub night (dinner on Tuesday or Thursday)."""
     slot_date = datetime.strptime(meal_slot["date"], "%Y-%m-%d").date()
     return meal_slot["meal_type"].lower() == "dinner" and slot_date.weekday() in [1, 3]
 
@@ -216,11 +215,9 @@ def admin_add_admin():
 @app.route("/admin/delete_admin/<username>", methods=["POST"])
 @admin_required
 def admin_delete_admin(username):
-    # Only the primary admin "admin" can delete admin accounts.
     if session.get("admin_username") != "admin":
         flash("You do not have permission to delete admin accounts.", "danger")
         return redirect(url_for("admin"))
-    # Do not allow deletion of the primary admin account "admin"
     if username == "admin":
         flash("Cannot delete the primary admin account.", "danger")
         return redirect(url_for("admin"))
@@ -274,7 +271,6 @@ def admin():
     week_list = sorted(list(weeks), reverse=True)
     cur = db.execute("SELECT username FROM admins ORDER BY username")
     admin_accounts = [row["username"] for row in cur.fetchall()]
-    # Determine if the current admin is the primary admin "admin"
     is_super_admin = session.get("admin_username") == "admin"
     return render_template(
         "admin.html",
@@ -303,6 +299,13 @@ def login():
         else:
             flash("Email not recognized. Please contact the administrator.", "danger")
     return render_template("login.html")
+
+
+@app.route("/guest_login", methods=["GET"])
+def guest_login():
+    session["user_email"] = "guest"
+    flash("Logged in as guest.", "info")
+    return redirect(url_for("index"))
 
 
 @app.route("/logout")

@@ -2,21 +2,58 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Meal Signup</title>
+  <title>Charter Meals</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
+  <style>
+    /* Pinned header styles */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-bottom: 1px solid #ccc;
+      z-index: 1000;
+      padding: 10px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+      display: inline-block;
+    }
+    header .nav {
+      float: right;
+      text-align: right;
+    }
+    .content {
+      margin-top: 80px;
+    }
+  </style>
 </head>
 <body>
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <ul id="messages">
-        {% for category, message in messages %}
-          <li class="{{ category }}">{{ message }}</li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-  {% endwith %}
-  {% block content %}{% endblock %}
+  <header>
+    <h1>Charter Meals</h1>
+    <div class="nav">
+      {% if session.get('admin_username') %}
+        Logged in as Admin: {{ session['admin_username'] }} | <a href="{{ url_for('admin_change_password') }}">Change Password</a> | <a href="{{ url_for('admin_logout') }}">Logout</a>
+      {% elif session.get('user_email') %}
+        Logged in as: {{ session['user_email'] }} | <a href="{{ url_for('logout') }}">Logout</a>
+      {% endif %}
+    </div>
+  </header>
+  <div class="content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul id="messages">
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
 </body>
 </html>
