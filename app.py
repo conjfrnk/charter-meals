@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+import logging
 from datetime import datetime, date, timedelta
 from functools import wraps
 from flask import (
@@ -19,6 +20,12 @@ from flask import (
 import csv, io
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# --- Security Extensions ---
+from flask_talisman import Talisman
+from flask_wtf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 app = Flask(__name__)
 
 # Load secret key from secrets.txt
@@ -30,6 +37,39 @@ except FileNotFoundError:
     raise RuntimeError(
         "Secret key file not found. Please create a 'secrets.txt' file with a generated secret key."
     )
+
+# Secure session cookie settings
+app.config.update(
+    SESSION_COOKIE_SECURE=True,  # Only transmit cookie over HTTPS.
+    SESSION_COOKIE_HTTPONLY=True,  # Disallow JavaScript access.
+    SESSION_COOKIE_SAMESITE="Lax",
+)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+# Initialize Talisman with a strict CSP.
+csp = {
+    "default-src": ["'self'"],
+    "script-src": ["'self'", "https://code.jquery.com", "'unsafe-inline'"],
+    "style-src": ["'self'", "'unsafe-inline'"],
+    "img-src": ["'self'", "data:"],
+    "connect-src": ["'self'"],
+    "font-src": ["'self'"],
+    "frame-ancestors": ["'none'"],
+    "base-uri": ["'self'"],
+    "form-action": ["'self'"],
+}
+Talisman(app, content_security_policy=csp)
+
+# Enable CSRF Protection
+csrf = CSRFProtect(app)
+
+# Initialize Rate Limiter (using init_app to avoid duplicate key_func parameters)
+limiter = Limiter(
+    key_func=get_remote_address, default_limits=["200 per day", "50 per hour"]
+)
+limiter.init_app(app)
 
 # Database location as specified
 app.config["DATABASE"] = "/var/www/data/meals.db"
@@ -67,7 +107,7 @@ def init_db():
 
 @app.cli.command("init-db")
 def init_db_command():
-    """Clear existing data and create new tables and default admin account."""
+    """Clear existing data, create new tables, and default admin account."""
     init_db()
     print(
         "Initialized the database with default admin (username: admin, password: admin)."
@@ -145,6 +185,7 @@ def admin_required(view):
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
 def admin_login():
     if request.method == "POST":
         username = request.form["username"].strip()

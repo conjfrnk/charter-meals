@@ -5,6 +5,7 @@
 <!-- Upload Known NetIDs -->
 <h3>Upload Known NetIDs</h3>
 <form method="POST" action="{{ url_for('admin_upload_emails') }}" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="file" name="emails_file" accept=".txt,.csv" required>
   <button type="submit">Upload NetIDs</button>
 </form>
@@ -12,6 +13,7 @@
 <!-- Add a Known User -->
 <h3>Add a Known User</h3>
 <form method="POST" action="{{ url_for('admin_add_user') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="text" name="new_netid" placeholder="Enter netID" required pattern="[a-z]{2}\d{4}">
   <button type="submit">Add User</button>
 </form>
@@ -19,6 +21,7 @@
 <!-- Delete a Known User -->
 <h3>Delete a Known User</h3>
 <form method="POST" action="{{ url_for('admin_delete_user') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="text" name="delete_netid" placeholder="Enter netID to delete" required pattern="[a-z]{2}\d{4}">
   <button type="submit">Delete User</button>
 </form>
@@ -29,9 +32,9 @@
   {% for user in users %}
     <li>
       {{ user.netid }}
-      <!-- Optionally, you can allow deletion here as well if desired -->
       {% if is_super_admin %}
         <form method="POST" action="{{ url_for('admin_delete_user') }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="delete_netid" value="{{ user.netid }}">
           <button type="submit">Delete</button>
         </form>
@@ -49,6 +52,7 @@
       <li>
         {{ res.netid }} (Signed up at: {{ res.timestamp }})
         <form method="POST" action="{{ url_for('admin_delete_reservation', reservation_id=res.reservation_id) }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit">Delete Reservation</button>
         </form>
       </li>
@@ -78,6 +82,7 @@
       {{ admin }}
       {% if is_super_admin and admin != "admin" %}
         <form method="POST" action="{{ url_for('admin_delete_admin', username=admin) }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit">Delete</button>
         </form>
       {% endif %}
@@ -88,6 +93,7 @@
 {% if is_super_admin %}
 <h3>Add New Admin Account</h3>
 <form method="POST" action="{{ url_for('admin_add_admin') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="text" name="new_admin_username" placeholder="New admin username" required>
   <input type="password" id="new_admin_password" name="new_admin_password" placeholder="New admin password" required>
   <button type="button" onclick="togglePassword('new_admin_password', this)">Show Password</button>

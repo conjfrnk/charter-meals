@@ -27,12 +27,7 @@
 {% if current_meals %}
   <ul>
     {% for meal in current_meals %}
-      <li>
-        {{ meal.date }} - {{ meal.meal_type|capitalize }}
-        {% if meal.meal_type|lower == "dinner" and (meal.date|weekday in [1,3]) %}
-          (pub night)
-        {% endif %}
-      </li>
+      <li>{{ meal.date }} - {{ meal.meal_type|capitalize }}{% if meal.meal_type|lower == "dinner" and (meal.date|weekday in [1,3]) %} (pub night){% endif %}</li>
     {% endfor %}
   </ul>
 {% else %}
@@ -42,6 +37,7 @@
 <!-- Next week meal signups -->
 <h3>Meal Signups for Next Week</h3>
 <form id="mealForm" method="POST" action="{{ url_for('reserve') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" id="client_timestamp" name="client_timestamp" value="">
   {% for day, slots in slots_by_date|dictsort %}
     <h4>{{ day }} ({{ day|dayname }})</h4>
@@ -66,7 +62,7 @@
       {% endfor %}
     </ul>
   {% endfor %}
-  {% if session["user_email"] == "guest" %}
+  {% if session["netid"] == "guest" %}
     <p style="color: red; font-weight: bold;">Guest users cannot submit reservations.</p>
     <button type="submit" disabled>Submit Reservations</button>
   {% else %}

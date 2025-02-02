@@ -2,8 +2,9 @@
 {% block content %}
 <h2>Login</h2>
 <form method="POST" action="{{ url_for('login') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="netid">NetID:</label>
-  <input type="text" name="netid" id="netid" required pattern="[a-z]{2}\d{4}">
+  <input type="text" name="netid" id="netid" placeholder="NetID" required pattern="[a-z]{2}\d{4}">
   <button type="submit">Login</button>
 </form>
 <br>
