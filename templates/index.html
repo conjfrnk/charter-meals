@@ -22,10 +22,23 @@
     <li>You can sign up for a maximum of 2 meals per week (pub nights count as one meal).</li>
     <li>In order to give everyone a chance to attend pub night, you may select at most 1 pub night (dinner of Tuesday or Thursday).</li>
     <li>Again for the sake of fairness, if you attended a pub night last week, you cannot sign up for one this week (e.g. you can only sign up for a pub night every two weeks).</li>
-    <li>If a meal time is full, it will be grayed out and unselectable.</li>
+    <li>If a meal time is full or otherwise ineligible, the checkbox will be replaced with a red X.</li>
   </ul>
 </div>
 
+<!-- Current week meal signups -->
+<h3>Meal Signups for This Week</h3>
+{% if current_meals %}
+  <ul>
+    {% for meal in current_meals %}
+      <li>{{ meal.date }} - {{ meal.meal_type|capitalize }}{% if meal.meal_type|lower == "dinner" and (meal.date|weekday in [1,3]) %} (pub night){% endif %}</li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>You have not signed up for any meals for this week.</p>
+{% endif %}
+
+<!-- Next week meal signups -->
 <h3>Meal Signups for Next Week</h3>
 <form id="mealForm" method="POST" action="{{ url_for('reserve') }}">
   <input type="hidden" id="client_timestamp" name="client_timestamp" value="">
@@ -33,15 +46,19 @@
     <h4>{{ day }} ({{ day|dayname }})</h4>
     <ul>
       {% for slot in slots %}
-        {% set is_pub = (slot.meal_type == 'dinner' and slot.date|weekday in [1,3]) %}
+        {% set is_pub = (slot.meal_type|lower == 'dinner' and slot.date|weekday in [1,3]) %}
+        {% set full = (slot_counts[slot.id|string] >= slot.capacity) %}
         <li>
-          <label class="{% if (slot.id|string not in user_reservations) and ((slot.meal_type=='dinner' and slot.date|weekday in [1,3] and not eligible_for_pub) or false) %} not-eligible {% endif %}">
-            <input type="checkbox" name="meal_slot" value="{{ slot.id }}"
-                   data-pub="{{ 1 if is_pub else 0 }}"
-                   data-capacity="{{ slot.capacity }}"
-                   {% if slot.id|string in user_reservations %} checked {% endif %}
-                   {% if is_pub and not eligible_for_pub and (slot.id|string not in user_reservations) %} disabled class="not-eligible" {% endif %}>
-            {{ slot.meal_type.capitalize() }} -
+          <label class="{% if full or (is_pub and not eligible_for_pub and (slot.id|string not in user_reservations)) %} ineligible {% endif %}">
+            {% if full or (is_pub and not eligible_for_pub and (slot.id|string not in user_reservations)) %}
+              <span style="color: red; font-weight: bold;">X</span>
+            {% else %}
+              <input type="checkbox" name="meal_slot" value="{{ slot.id }}"
+                     data-pub="{{ 1 if is_pub else 0 }}"
+                     data-capacity="{{ slot.capacity }}"
+                     {% if slot.id|string in user_reservations %} checked {% endif %}>
+            {% endif %}
+            {{ slot.meal_type.capitalize() }}{% if is_pub %} (pub night){% endif %} -
             <span id="count-{{ slot.id }}" data-capacity="{{ slot.capacity }}">0/{{ slot.capacity }} reservations</span>
           </label>
         </li>

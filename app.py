@@ -108,6 +108,12 @@ def generate_next_week_meal_slots():
     db.commit()
 
 
+def is_pub_slot(meal_slot):
+    """Return True if the meal slot is a pub night (dinner on Tuesday or Thursday)."""
+    slot_date = datetime.strptime(meal_slot["date"], "%Y-%m-%d").date()
+    return meal_slot["meal_type"].lower() == "dinner" and slot_date.weekday() in [1, 3]
+
+
 def login_required(view):
     @wraps(view)
     def wrapped_view(**kwargs):
@@ -228,6 +234,9 @@ def admin_delete_admin(username):
 # --- End Admin Authentication System ---
 
 
+# ---------------------------
+# Admin Dashboard Route
+# ---------------------------
 @app.route("/admin", methods=["GET"])
 @admin_required
 def admin():
@@ -277,6 +286,9 @@ def admin():
     )
 
 
+# ---------------------------
+# User Routes
+# ---------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -313,6 +325,14 @@ def index():
         (next_monday.isoformat(), next_sunday.isoformat()),
     )
     meal_slots = cur.fetchall()
+    # Calculate current week counts for each slot
+    slot_counts = {}
+    for slot in meal_slots:
+        cur = db.execute(
+            "SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?",
+            (slot["id"],),
+        )
+        slot_counts[str(slot["id"])] = cur.fetchone()["count"]
     slots_by_date = {}
     for slot in meal_slots:
         slots_by_date.setdefault(slot["date"], []).append(slot)
@@ -332,8 +352,19 @@ def index():
         (session["user_email"], next_monday.isoformat(), next_sunday.isoformat()),
     )
     user_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
+    # Get the meals for the current week for display
     this_monday = date.today() - timedelta(days=date.today().weekday())
     this_sunday = this_monday + timedelta(days=6)
+    cur = db.execute(
+        """
+        SELECT ms.date, ms.meal_type FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        WHERE r.user_email = ? AND ms.date BETWEEN ? AND ?
+        ORDER BY ms.date, ms.meal_type
+        """,
+        (session["user_email"], this_monday.isoformat(), this_sunday.isoformat()),
+    )
+    current_meals = cur.fetchall()
     cur = db.execute(
         """
         SELECT r.*, ms.date, ms.meal_type FROM reservations r
@@ -355,6 +386,8 @@ def index():
         slots_by_date=slots_by_date,
         user_reservations=user_reservations,
         eligible_for_pub=eligible_for_pub,
+        current_meals=current_meals,
+        slot_counts=slot_counts,
     )
 
 
