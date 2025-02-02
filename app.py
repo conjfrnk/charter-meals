@@ -48,14 +48,14 @@ app.config.update(
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# Initialize Talisman with a strict CSP.
+# Initialize Talisman with an updated Content Security Policy.
 csp = {
     "default-src": ["'self'"],
     "script-src": ["'self'", "https://code.jquery.com", "'unsafe-inline'"],
-    "style-src": ["'self'", "'unsafe-inline'"],
+    "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
     "img-src": ["'self'", "data:"],
     "connect-src": ["'self'"],
-    "font-src": ["'self'"],
+    "font-src": ["'self'", "https://fonts.gstatic.com"],
     "frame-ancestors": ["'none'"],
     "base-uri": ["'self'"],
     "form-action": ["'self'"],
@@ -100,7 +100,7 @@ def init_db():
     # Create default admin account (username: admin, password: admin)
     db.execute(
         "INSERT OR IGNORE INTO admins (username, password) VALUES (?, ?)",
-        ("admin", generate_password_hash("admin")),
+        ("admin", generate_password_hash("admin", method="pbkdf2:sha256")),
     )
     db.commit()
 
@@ -225,7 +225,7 @@ def admin_change_password():
         )
         admin = cur.fetchone()
         if admin and check_password_hash(admin["password"], current):
-            new_hash = generate_password_hash(new_pass)
+            new_hash = generate_password_hash(new_pass, method="pbkdf2:sha256")
             db.execute(
                 "UPDATE admins SET password = ? WHERE username = ?",
                 (new_hash, session["admin_username"]),
@@ -249,7 +249,7 @@ def admin_add_admin():
         return redirect(url_for("admin"))
     db = get_db()
     try:
-        password_hash = generate_password_hash(password)
+        password_hash = generate_password_hash(password, method="pbkdf2:sha256")
         db.execute(
             "INSERT INTO admins (username, password) VALUES (?, ?)",
             (username, password_hash),

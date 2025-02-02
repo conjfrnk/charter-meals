@@ -1,13 +1,12 @@
-/* Ensure html and body take full height and use flexbox */
-html, body {
-  height: 100%;
+/* Global Reset */
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+/* Base Styles (Desktop) */
 body {
-  display: flex;
-  flex-direction: column;
   font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.6;
@@ -15,17 +14,31 @@ body {
   color: #333;
 }
 
-/* The wrapper takes full height and is a column flex container */
+a {
+  color: #C5A144;  /* Yellow */
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Wrapper and Layout */
 .wrapper {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  min-height: 100vh;
 }
 
-/* Header */
+/* Header (Desktop) */
 header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   background: #561C1D;  /* Maroon */
   border-bottom: 1px solid #ccc;
+  z-index: 1000;
   padding: 10px 20px;
   display: flex;
   align-items: center;
@@ -53,30 +66,46 @@ header h1 {
   color: #fff;
 }
 
-/* Content Area */
+/* Mobile Banner (hidden on desktop) */
+.mobile-banner {
+  display: none;
+  background-color: #C5A144; /* Yellow */
+  color: #561C1D; /* Maroon */
+  text-align: center;
+  padding: 5px 0;
+  font-size: 16px;
+}
+
+/* Content Area (Desktop) */
 .content {
-  flex: 1;   /* Fills remaining space */
+  flex: 1;
+  margin-top: 80px;    /* leave space for fixed header */
   padding: 20px;
 }
 
-/* Preserve bullet styling for lists */
+/* List Styling */
 ul {
   list-style: disc;
   margin-left: 20px;
   padding-left: 20px;
 }
 
-/* Flash messages */
+li {
+  margin-bottom: 5px;
+}
+
+/* Flash Messages */
 #messages {
   list-style: none;
   padding: 0;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 #messages li {
-  padding: 10px;
-  margin-bottom: 10px;
+  padding: 8px;
+  margin-bottom: 8px;
   border-radius: 4px;
+  font-size: 0.95em;
 }
 
 #messages li.success {
@@ -89,35 +118,69 @@ ul {
   color: #721c24;
 }
 
-/* Footer: will follow the content and always appear as the last element */
+/* Footer (Desktop) - flows normally */
 footer {
   width: 100%;
   background-color: #561C1D; /* Maroon */
   color: #fff;
   text-align: center;
   padding: 10px 0;
+  margin-top: 50px;
 }
 
-/* Responsive adjustments */
+/* -------------------------
+   Mobile-specific Styles
+   ------------------------- */
 @media (max-width: 600px) {
+  /* Double the base font size */
   body {
-    font-size: 18px;
+    font-size: 32px; /* 2x 16px */
+    line-height: 1.6;
   }
   
   header h1 {
-    font-size: 20px;
+    font-size: 48px; /* 2x 24px */
   }
   
   .nav {
-    font-size: 14px;
+    font-size: 32px; /* 2x 16px */
   }
   
+  /* Increase padding in content */
   .content {
-    padding: 15px;
+    padding: 40px; /* 2x 20px */
+    margin-top: 80px;  /* header remains fixed */
+    /* Since the footer is fixed on mobile, we remove bottom margin from content */
+    margin-bottom: 0;
   }
   
+  /* Make checkboxes larger */
+  input[type="checkbox"] {
+    width: 50px;  /* 2x 25px */
+    height: 50px;
+    margin-right: 10px; /* 2x 5px */
+  }
+  
+  /* Make buttons larger and easier to tap */
+  button {
+    padding: 16px 24px; /* 2x (8px, 12px) */
+    font-size: 32px;    /* 2x 16px */
+    cursor: pointer;
+  }
+  
+  /* Fix the footer at the bottom of the viewport */
   footer {
-    font-size: 14px;
-    padding: 15px 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    font-size: 32px; /* 2x 16px */
+    padding: 20px 0; /* 2x 10px */
+    margin-top: 0;
+  }
+  
+  /* Show the mobile banner */
+  .mobile-banner {
+    display: block;
   }
 }

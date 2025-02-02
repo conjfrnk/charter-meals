@@ -2,11 +2,12 @@
 {% block content %}
 <h2>Admin Login</h2>
 <form method="POST" action="{{ url_for('admin_login') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="username">Username:</label>
-  <input type="text" name="username" id="username" required>
+  <input type="text" name="username" id="username" placeholder="Username" required>
   <br>
   <label for="password">Password:</label>
-  <input type="password" name="password" id="password" required>
+  <input type="password" name="password" id="password" placeholder="Password" required>
   <br>
   <button type="submit">Login</button>
 </form>

@@ -4,13 +4,53 @@
   <meta charset="utf-8">
   <title>Charter Meals</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <!-- Set favicon to your pcc_logo.png -->
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='pcc_logo.png') }}">
+  <!-- Only load favicon on desktop -->
+  <link rel="icon" type="image/png" media="(min-width: 601px)" href="{{ url_for('static', filename='pcc_logo.png') }}">
+  <!-- Load jQuery from CDN (allowed by our updated CSP) -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- Then load our main.js -->
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <!-- Optional: Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* Pinned header styles */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #561C1D;  /* Maroon */
+      border-bottom: 1px solid #ccc;
+      z-index: 1000;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+    }
+    .logo {
+      height: 50px;
+      width: auto;
+    }
+    header h1 {
+      margin-left: 10px;
+      font-size: 24px;
+      color: #fff;
+    }
+    header .nav {
+      font-size: 16px;
+      color: #fff;
+    }
+    .content {
+      margin-top: 80px;
+      padding: 20px;
+    }
+  </style>
 </head>
 <body>
   <div class="wrapper">
@@ -34,7 +74,7 @@
         {% endif %}
       </div>
     </header>
-    <main class="content">
+    <div class="content">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           <ul id="messages">
@@ -45,9 +85,9 @@
         {% endif %}
       {% endwith %}
       {% block content %}{% endblock %}
-    </main>
+    </div>
     <footer>
-      Created by <a href="https://conjfrnk.com" target="_blank" style="color: #C5A144;">Connor Frank</a>, the Charter House Manager --
+      Created by <a href="https://conjfrnk.com" target="_blank" style="color: #C5A144;">Connor Frank</a>, the Charter House Manager -- 
       <a href="https://github.com/conjfrnk/charter-meals" target="_blank" style="color: #C5A144;">GitHub</a>
     </footer>
   </div>
