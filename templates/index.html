@@ -1,15 +1,15 @@
 {% extends "layout.html" %}
 {% block content %}
-<h2>Welcome to Charter Meals!</h2>
+<h2>Welcome to Charter!!</h2>
+<p>We can't wait to see you at Charter meals!</p>
 <p>
-  We can't wait to see you at Charter Meals! Sign up below so we have a sense of how many people are coming to each meal.
+  Sign up below so we have a sense of how many people are coming to each meal.
   Contact our kitchen managers, Tiffany and Hector, if you have any questions.
 </p>
 
 {% if not eligible_for_pub %}
   <div style="color: red; font-weight: bold; margin-bottom: 1em;">
     You already signed up for a pub night last week! You can try again next week!
-    <span class="dismiss">×</span>
   </div>
 {% endif %}
 
@@ -71,4 +71,7 @@
     <button type="submit">Submit Reservations</button>
   {% endif %}
 </form>
+
+<!-- Mobile-only spacer -->
+<div class="mobile-spacer"></div>
 {% endblock %}

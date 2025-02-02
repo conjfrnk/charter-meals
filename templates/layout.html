@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <!-- Ensure proper scaling on mobile -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Tell Mobile Safari to use the web app full screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Charter Meals</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <!-- Load favicon only on desktop -->
@@ -9,7 +13,7 @@
   <!-- Load jQuery before main.js -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
-  <!-- Optional: Google Fonts -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -24,23 +28,22 @@
       <div class="nav">
         {% if request.path.startswith('/admin') %}
           {% if session.get('admin_username') %}
-            Logged in as Admin: {{ session['admin_username'] }} |
+            Logged in as Admin: {{ session['admin_username'] }}<span class="mobile-break"></span>
             <a href="{{ url_for('admin_change_password') }}" style="color: #C5A144;">Change Password</a> |
             <a href="{{ url_for('admin_logout') }}" style="color: #C5A144;">Logout</a>
           {% endif %}
         {% else %}
           {% if session.get('netid') %}
-            Logged in as: {{ session['netid'] }} |
+            Logged in as: {{ session['netid'] }}<span class="mobile-break"></span>
             <a href="{{ url_for('logout') }}" style="color: #C5A144;">Logout</a>
           {% endif %}
         {% endif %}
       </div>
     </header>
     
-    <!-- Mobile Banner with dismiss button -->
+    <!-- Mobile Banner (no dismiss button) -->
     <div class="mobile-banner">
       You are viewing the mobile version.
-      <span class="dismiss">×</span>
     </div>
     
     <main class="content">
@@ -48,10 +51,7 @@
         {% if messages %}
           <ul id="messages">
             {% for category, message in messages %}
-              <li class="{{ category }}">
-                {{ message }}
-                <span class="dismiss">×</span>
-              </li>
+              <li class="{{ category }}">{{ message }}</li>
             {% endfor %}
           </ul>
         {% endif %}
