@@ -2,37 +2,45 @@
 {% block content %}
 <h2>Admin Dashboard</h2>
 
+<!-- Upload Known NetIDs -->
 <h3>Upload Known NetIDs</h3>
 <form method="POST" action="{{ url_for('admin_upload_emails') }}" enctype="multipart/form-data">
   <input type="file" name="emails_file" accept=".txt,.csv" required>
   <button type="submit">Upload NetIDs</button>
 </form>
 
+<!-- Add a Known User -->
 <h3>Add a Known User</h3>
 <form method="POST" action="{{ url_for('admin_add_user') }}">
-  <input type="text" name="new_netid" placeholder="Enter NetID" required pattern="[a-z]{2}\d{4}">
+  <input type="text" name="new_netid" placeholder="Enter netID" required pattern="[a-z]{2}\d{4}">
   <button type="submit">Add User</button>
 </form>
 
+<!-- Delete a Known User -->
 <h3>Delete a Known User</h3>
 <form method="POST" action="{{ url_for('admin_delete_user') }}">
-  <input type="text" name="delete_netid" placeholder="Enter NetID to delete" required pattern="[a-z]{2}\d{4}">
+  <input type="text" name="delete_netid" placeholder="Enter netID to delete" required pattern="[a-z]{2}\d{4}">
   <button type="submit">Delete User</button>
 </form>
 
+<!-- Known Users List -->
 <h3>Known Users</h3>
 <ul>
   {% for user in users %}
     <li>
       {{ user.netid }}
-      <form method="POST" action="{{ url_for('admin_delete_user') }}" style="display:inline;">
-        <input type="hidden" name="delete_netid" value="{{ user.netid }}">
-        <button type="submit">Delete</button>
-      </form>
+      <!-- Optionally, you can allow deletion here as well if desired -->
+      {% if is_super_admin %}
+        <form method="POST" action="{{ url_for('admin_delete_user') }}" style="display:inline;">
+          <input type="hidden" name="delete_netid" value="{{ user.netid }}">
+          <button type="submit">Delete</button>
+        </form>
+      {% endif %}
     </li>
   {% endfor %}
 </ul>
 
+<!-- Meal Reservations Section -->
 <h3>Meal Reservations</h3>
 {% for key, group in reservations_by_slot.items() %}
   <h4>{{ key }}</h4>
@@ -48,6 +56,7 @@
   </ul>
 {% endfor %}
 
+<!-- CSV Downloads -->
 <h3>Download CSV for Specific Weeks (Newest on Top)</h3>
 <ul>
   {% for week in week_list %}
@@ -61,17 +70,16 @@
 <h3>Download CSV for All Reservations</h3>
 <a href="{{ url_for('admin_download_all_meal_signups') }}">Download CSV</a>
 
+<!-- Admin Accounts Section -->
 <h3>Admin Accounts</h3>
 <ul>
   {% for admin in admin_accounts %}
     <li>
       {{ admin }}
-      {% if is_super_admin %}
-        {% if admin != "admin" %}
-          <form method="POST" action="{{ url_for('admin_delete_admin', username=admin) }}" style="display:inline;">
-            <button type="submit">Delete</button>
-          </form>
-        {% endif %}
+      {% if is_super_admin and admin != "admin" %}
+        <form method="POST" action="{{ url_for('admin_delete_admin', username=admin) }}" style="display:inline;">
+          <button type="submit">Delete</button>
+        </form>
       {% endif %}
     </li>
   {% endfor %}
@@ -81,8 +89,21 @@
 <h3>Add New Admin Account</h3>
 <form method="POST" action="{{ url_for('admin_add_admin') }}">
   <input type="text" name="new_admin_username" placeholder="New admin username" required>
-  <input type="password" name="new_admin_password" placeholder="New admin password" required>
+  <input type="password" id="new_admin_password" name="new_admin_password" placeholder="New admin password" required>
+  <button type="button" onclick="togglePassword('new_admin_password', this)">Show Password</button>
   <button type="submit">Add Admin</button>
 </form>
+<script>
+function togglePassword(fieldId, btn) {
+  var input = document.getElementById(fieldId);
+  if (input.type === "password") {
+    input.type = "text";
+    btn.textContent = "Hide Password";
+  } else {
+    input.type = "password";
+    btn.textContent = "Show Password";
+  }
+}
+</script>
 {% endif %}
 {% endblock %}
