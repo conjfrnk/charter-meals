@@ -1,9 +1,9 @@
 $(document).ready(function(){
-  // Dismiss any element when its dismiss button is clicked (for desktop only)
+  // Dismiss any element when its dismiss button is clicked (desktop only)
   $(document).on('click', '.dismiss', function() {
     $(this).parent().fadeOut();
   });
-  
+
   // Update the reservation counts shown next to each meal slot.
   function updateCounts(){
     $.getJSON("/meal_counts", function(data){
@@ -13,15 +13,16 @@ $(document).ready(function(){
     });
   }
   updateCounts();
-  setInterval(updateCounts, 10000);
-  
+  // Auto-refresh counts every 5 minutes (300000 ms)
+  setInterval(updateCounts, 300000);
+
   // Update the hidden client timestamp field with the current ISO timestamp.
   function updateTimestamp() {
     var ts = new Date().toISOString();
     $("#client_timestamp").val(ts);
     console.log("Timestamp updated: " + ts);
   }
-  
+
   // Enforce selection limits on eligible checkboxes:
   // - Maximum 2 meals total.
   // - Maximum 1 pub night.
@@ -43,17 +44,41 @@ $(document).ready(function(){
       }
     }
   }
-  
+
+  // New function to update eligibility dynamically based on current selections.
+  function updateEligibility(){
+    var totalSelected = $("input[name='meal_slot']:checked").length;
+    var pubSelected = $("input[name='meal_slot'][data-pub='1']:checked").length;
+    
+    $("input[name='meal_slot']").each(function(){
+      // Check if this checkbox was originally disabled by the server.
+      var originallyDisabled = $(this).data("original-disabled");
+      if(originallyDisabled){
+        // Skip updating this checkbox if originally disabled.
+        return;
+      }
+      // If not checked, update disabled state based on limits.
+      if(!$(this).is(":checked")){
+        if(totalSelected >= 2) {
+          $(this).prop("disabled", true);
+        } else if($(this).data("pub") === 1 && pubSelected >= 1) {
+          $(this).prop("disabled", true);
+        } else {
+          $(this).prop("disabled", false);
+        }
+      }
+    });
+  }
+
   $("input[type='checkbox'][name='meal_slot']").change(function(){
     var $this = $(this);
     enforceLimits($this);
     updateTimestamp();
+    updateCounts();
+    updateEligibility();
   });
-  
-  $("#mealForm").submit(function(e){
-    updateTimestamp();
-    console.log("Form submitted with timestamp: " + $("#client_timestamp").val());
-  });
-  
+
+  // Call updateEligibility on page load in case some checkboxes need to be disabled initially.
+  updateEligibility();
   updateTimestamp();
 });

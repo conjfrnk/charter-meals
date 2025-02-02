@@ -403,8 +403,8 @@ def index():
         slots.sort(key=lambda s: order.get(s["meal_type"], 99))
     cur = db.execute(
         """
-        SELECT meal_slot_id FROM reservations r 
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id 
+        SELECT meal_slot_id FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
         WHERE r.netid = ? AND ms.date BETWEEN ? AND ?
         """,
         (session["netid"], next_monday.isoformat(), next_sunday.isoformat()),
@@ -452,6 +452,10 @@ def index():
 @app.route("/reserve", methods=["POST"])
 @login_required
 def reserve():
+    # Prevent guest users from making reservations
+    if session.get("netid") == "guest":
+        flash("Guest users cannot submit reservations.", "danger")
+        return redirect(url_for("index"))
     selected_slots = set(request.form.getlist("meal_slot"))
     client_timestamp = request.form.get("client_timestamp")
     if not client_timestamp:
@@ -529,6 +533,7 @@ def reserve():
     try:
         db.commit()
     except Exception as e:
+        db.rollback()
         flash("Database commit failed: " + str(e), "danger")
         return redirect(url_for("index"))
     flash("Reservations updated successfully.", "success")

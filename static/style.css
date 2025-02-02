@@ -12,7 +12,6 @@ body {
   line-height: 1.6;
   background-color: #f8f8f8;
   color: #333;
-  /* No extra bottom padding */
 }
 
 /* Links */
@@ -45,6 +44,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 10px;
 }
 
 .header-left {
@@ -83,7 +83,7 @@ header h1 {
 /* Content Area */
 .content {
   flex: 1;
-  margin-top: 80px; /* space for fixed header */
+  margin-top: 80px;    /* space for fixed header */
   padding: 20px;
 }
 
@@ -119,7 +119,6 @@ li {
   position: relative;
 }
 
-/* Message Colors */
 #messages li.success {
   background-color: #d4edda;
   color: #155724;
@@ -139,14 +138,13 @@ li {
   float: right;
 }
 
-/* Not-available style: for ineligible meal slots */
-.not-available {
-  color: red;
-  font-weight: bold;
+/* Disabled checkbox styling */
+input[type="checkbox"]:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Footer (Desktop) - flows normally after content */
+/* Footer (Desktop) */
 footer {
   width: 100%;
   background-color: #561C1D; /* Maroon */
@@ -165,39 +163,38 @@ footer {
 
 /* Mobile-specific Styles (max-width: 600px) */
 @media (max-width: 600px) {
-  /* Scale everything 2x */
+  /* Double the base font size */
   body {
     font-size: 32px; /* 2x 16px */
     line-height: 1.6;
   }
-  
+
   header h1 {
     font-size: 48px; /* 2x 24px */
   }
-  
+
   .nav {
     font-size: 32px; /* 2x 16px */
   }
-  
+
   .content {
     padding: 40px; /* 2x 20px */
-    margin-top: 80px; /* fixed header remains same */
+    margin-top: 80px; /* header remains fixed */
     margin-bottom: 0;  /* content stops above fixed footer */
   }
-  
-  /* Increase tap targets for checkboxes and buttons */
+
   input[type="checkbox"] {
-    width: 50px;
+    width: 50px;  /* larger tap target */
     height: 50px;
     margin-right: 10px;
   }
-  
+
   button {
     padding: 16px 24px;
     font-size: 32px;
     cursor: pointer;
   }
-  
+
   /* Fix the footer at the bottom of the viewport on mobile */
   footer {
     position: fixed;
@@ -208,14 +205,60 @@ footer {
     padding: 20px 0;
     margin-top: 0;
   }
-  
-  /* Show the mobile banner on mobile */
+
   .mobile-banner {
     display: block;
   }
-  
-  /* On mobile, remove dismiss behavior from banners */
+
+  /* Hide the dismiss button on mobile */
   .dismiss {
     display: none;
+  }
+}
+
+/* Dark Mode */
+/* These styles will activate for users whose system is set to dark mode.
+   The header and footer remain unchanged; only the body, main content, and
+   inner elements are adjusted for a dark appearance. */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #121212; /* Deep dark background for overall page */
+    color: #e0e0e0;
+  }
+  .content {
+    background-color: #1e1e1e; /* A slightly lighter dark background for content */
+    color: #e0e0e0;
+  }
+  /* Ensure that headings, paragraphs, lists, etc., in the content area use light text */
+  .content h1,
+  .content h2,
+  .content h3,
+  .content h4,
+  .content p,
+  .content ul,
+  .content li {
+    color: #e0e0e0;
+  }
+  /* Adjust flash messages for dark mode */
+  #messages li.success {
+    background-color: #2e3b2e;
+    color: #a5d6a7;
+  }
+  #messages li.danger {
+    background-color: #3b2e2e;
+    color: #ef9a9a;
+  }
+  /* Form elements (inputs, textareas, selects) */
+  input, textarea, select {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border: 1px solid #444;
+  }
+  /* Links within the content area */
+  .content a {
+    color: #C5A144;
+  }
+  .content a:hover {
+    text-decoration: underline;
   }
 }
