@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 from datetime import datetime, date, timedelta
 from functools import wraps
@@ -56,14 +57,21 @@ def init_db():
     db = get_db()
     with app.open_resource("schema.sql", mode="r") as f:
         db.executescript(f.read())
+    # Create default admin account (username: admin, password: admin)
+    db.execute(
+        "INSERT OR IGNORE INTO admins (username, password) VALUES (?, ?)",
+        ("admin", generate_password_hash("admin")),
+    )
     db.commit()
 
 
 @app.cli.command("init-db")
 def init_db_command():
-    """Clear existing data and create new tables."""
+    """Clear existing data and create new tables and default admin account."""
     init_db()
-    print("Initialized the database.")
+    print(
+        "Initialized the database with default admin (username: admin, password: admin)."
+    )
 
 
 # ---------------------------
@@ -116,7 +124,7 @@ def is_pub_slot(meal_slot):
 def login_required(view):
     @wraps(view)
     def wrapped_view(**kwargs):
-        if "user_email" not in session:
+        if "netid" not in session:
             return redirect(url_for("login"))
         return view(**kwargs)
 
@@ -238,11 +246,11 @@ def admin_delete_admin(username):
 @admin_required
 def admin():
     db = get_db()
-    cur = db.execute("SELECT email FROM users ORDER BY email")
+    cur = db.execute("SELECT netid FROM users ORDER BY netid")
     users = cur.fetchall()
     cur = db.execute(
         """
-        SELECT r.id as reservation_id, r.user_email, ms.id as meal_slot_id, ms.date, ms.meal_type, r.timestamp
+        SELECT r.id as reservation_id, r.netid, ms.id as meal_slot_id, ms.date, ms.meal_type, r.timestamp
         FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
         ORDER BY ms.date, ms.meal_type
@@ -288,22 +296,28 @@ def admin():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form["email"].strip().lower()
+        netid = request.form["netid"].strip().lower()
+        if not re.match(r"^[a-z]{2}\d{4}$", netid):
+            flash(
+                "Invalid netid format. Must be two letters followed by four digits (e.g. ab1234).",
+                "danger",
+            )
+            return redirect(url_for("login"))
         db = get_db()
-        cur = db.execute("SELECT email FROM users WHERE email = ?", (email,))
+        cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
         user = cur.fetchone()
         if user:
-            session["user_email"] = email
+            session["netid"] = netid
             flash("Logged in successfully.", "success")
             return redirect(url_for("index"))
         else:
-            flash("Email not recognized. Please contact the administrator.", "danger")
+            flash("Netid not recognized. Please contact the administrator.", "danger")
     return render_template("login.html")
 
 
 @app.route("/guest_login", methods=["GET"])
 def guest_login():
-    session["user_email"] = "guest"
+    session["netid"] = "guest"
     flash("Logged in as guest.", "info")
     return redirect(url_for("index"))
 
@@ -350,9 +364,9 @@ def index():
         """
         SELECT meal_slot_id FROM reservations r 
         JOIN meal_slots ms ON r.meal_slot_id = ms.id 
-        WHERE r.user_email = ? AND ms.date BETWEEN ? AND ?
+        WHERE r.netid = ? AND ms.date BETWEEN ? AND ?
         """,
-        (session["user_email"], next_monday.isoformat(), next_sunday.isoformat()),
+        (session["netid"], next_monday.isoformat(), next_sunday.isoformat()),
     )
     user_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
     # Get the meals for the current week for display
@@ -362,19 +376,19 @@ def index():
         """
         SELECT ms.date, ms.meal_type FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        WHERE r.user_email = ? AND ms.date BETWEEN ? AND ?
+        WHERE r.netid = ? AND ms.date BETWEEN ? AND ?
         ORDER BY ms.date, ms.meal_type
         """,
-        (session["user_email"], this_monday.isoformat(), this_sunday.isoformat()),
+        (session["netid"], this_monday.isoformat(), this_sunday.isoformat()),
     )
     current_meals = cur.fetchall()
     cur = db.execute(
         """
         SELECT r.*, ms.date, ms.meal_type FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        WHERE r.user_email = ? AND ms.date BETWEEN ? AND ?
+        WHERE r.netid = ? AND ms.date BETWEEN ? AND ?
         """,
-        (session["user_email"], this_monday.isoformat(), this_sunday.isoformat()),
+        (session["netid"], this_monday.isoformat(), this_sunday.isoformat()),
     )
     pub_exists = any(
         (
@@ -409,7 +423,7 @@ def reserve():
         flash("Invalid timestamp format: " + str(e), "danger")
         return redirect(url_for("index"))
     db = get_db()
-    user_email = session["user_email"]
+    user_netid = session["netid"]
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
@@ -417,11 +431,11 @@ def reserve():
         """
         SELECT meal_slot_id FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        WHERE r.user_email = ? AND ms.date BETWEEN ? AND ?
+        WHERE r.netid = ? AND ms.date BETWEEN ? AND ?
         """,
-        (user_email, next_monday.isoformat(), next_sunday.isoformat()),
+        (user_netid, next_monday.isoformat(), next_sunday.isoformat()),
     )
-    current_reservations = set(str(row["meal_slot_id"]) for row in cur.fetchall())
+    current_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
     to_delete = current_reservations - selected_slots
     to_add = selected_slots - current_reservations
     if len(selected_slots) > 2:
@@ -456,8 +470,8 @@ def reserve():
     for slot_id in to_delete:
         try:
             db.execute(
-                "DELETE FROM reservations WHERE user_email = ? AND meal_slot_id = ?",
-                (user_email, slot_id),
+                "DELETE FROM reservations WHERE netid = ? AND meal_slot_id = ?",
+                (user_netid, slot_id),
             )
         except Exception as e:
             flash(f"Error deleting reservation for slot {slot_id}: {str(e)}", "danger")
@@ -465,8 +479,8 @@ def reserve():
     for slot_id in to_add:
         try:
             db.execute(
-                "INSERT INTO reservations (user_email, meal_slot_id, timestamp) VALUES (?, ?, ?)",
-                (user_email, slot_id, client_timestamp),
+                "INSERT INTO reservations (netid, meal_slot_id, timestamp) VALUES (?, ?, ?)",
+                (user_netid, slot_id, client_timestamp),
             )
         except Exception as e:
             flash(f"Error adding reservation for slot {slot_id}: {str(e)}", "danger")
@@ -498,7 +512,7 @@ def admin_download_meal_signups_week(week_start):
     week_end_date = week_start_date + timedelta(days=6)
     cur = db.execute(
         """
-        SELECT ms.date, ms.meal_type, r.user_email, r.timestamp
+        SELECT ms.date, ms.meal_type, r.netid, r.timestamp
         FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
         WHERE ms.date BETWEEN ? AND ?
@@ -509,10 +523,9 @@ def admin_download_meal_signups_week(week_start):
     rows = cur.fetchall()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["date", "meal", "username"])
+    writer.writerow(["date", "meal", "netid"])
     for row in rows:
-        username = row["user_email"].split("@")[0]
-        writer.writerow([row["date"], row["meal_type"], username])
+        writer.writerow([row["date"], row["meal_type"], row["netid"]])
     csv_content = output.getvalue()
     output.close()
     return Response(
@@ -532,7 +545,7 @@ def admin_download_all_meal_signups():
     db = get_db()
     cur = db.execute(
         """
-        SELECT ms.date, ms.meal_type, r.user_email, r.timestamp
+        SELECT ms.date, ms.meal_type, r.netid, r.timestamp
         FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
         ORDER BY r.timestamp ASC
@@ -541,10 +554,9 @@ def admin_download_all_meal_signups():
     rows = cur.fetchall()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["date", "meal", "username"])
+    writer.writerow(["date", "meal", "netid"])
     for row in rows:
-        username = row["user_email"].split("@")[0]
-        writer.writerow([row["date"], row["meal_type"], username])
+        writer.writerow([row["date"], row["meal_type"], row["netid"]])
     csv_content = output.getvalue()
     output.close()
     return Response(
@@ -567,18 +579,26 @@ def admin_upload_emails():
                 flash("Error reading file.", "danger")
                 return redirect(url_for("admin"))
             lines = content.replace(",", "\n").splitlines()
-            emails = [line.strip().lower() for line in lines if line.strip()]
+            # Validate netids: each should match two letters followed by 4 digits.
+            valid_netids = []
+            invalid_netids = []
+            for line in lines:
+                netid = line.strip().lower()
+                if re.match(r"^[a-z]{2}\d{4}$", netid):
+                    valid_netids.append(netid)
+                else:
+                    invalid_netids.append(netid)
             added = []
             skipped = []
-            for email in emails:
+            for netid in valid_netids:
                 try:
-                    db.execute("INSERT INTO users (email) VALUES (?)", (email,))
-                    added.append(email)
+                    db.execute("INSERT INTO users (netid) VALUES (?)", (netid,))
+                    added.append(netid)
                 except sqlite3.IntegrityError:
-                    skipped.append(email)
+                    skipped.append(netid)
             db.commit()
             flash(
-                f"Added {len(added)} emails. Skipped {len(skipped)} duplicates.",
+                f"Added {len(added)} netids. Skipped {len(skipped)} duplicates. Skipped {len(invalid_netids)} invalid netids.",
                 "success",
             )
     return redirect(url_for("admin"))
@@ -588,16 +608,22 @@ def admin_upload_emails():
 @admin_required
 def admin_add_user():
     db = get_db()
-    email = request.form.get("new_user_email", "").strip().lower()
-    if email:
+    netid = request.form.get("new_netid", "").strip().lower()
+    if netid:
+        if not re.match(r"^[a-z]{2}\d{4}$", netid):
+            flash(
+                "Invalid netid format. Must be two letters followed by four digits (e.g. ab1234).",
+                "danger",
+            )
+            return redirect(url_for("admin"))
         try:
-            db.execute("INSERT INTO users (email) VALUES (?)", (email,))
+            db.execute("INSERT INTO users (netid) VALUES (?)", (netid,))
             db.commit()
-            flash(f"User {email} added.", "success")
+            flash(f"User {netid} added.", "success")
         except sqlite3.IntegrityError:
-            flash(f"User {email} already exists.", "warning")
+            flash(f"User {netid} already exists.", "warning")
     else:
-        flash("No email provided.", "danger")
+        flash("No netid provided.", "danger")
     return redirect(url_for("admin"))
 
 
@@ -605,13 +631,13 @@ def admin_add_user():
 @admin_required
 def admin_delete_user():
     db = get_db()
-    email = request.form.get("delete_user_email", "").strip().lower()
-    if email:
-        db.execute("DELETE FROM users WHERE email = ?", (email,))
+    netid = request.form.get("delete_netid", "").strip().lower()
+    if netid:
+        db.execute("DELETE FROM users WHERE netid = ?", (netid,))
         db.commit()
-        flash(f"User {email} deleted.", "success")
+        flash(f"User {netid} deleted.", "success")
     else:
-        flash("No email provided.", "danger")
+        flash("No netid provided.", "danger")
     return redirect(url_for("admin"))
 
 
@@ -619,19 +645,19 @@ def admin_delete_user():
 @admin_required
 def admin_add_reservation():
     db = get_db()
-    email = request.form.get("reservation_email", "").strip().lower()
+    netid = request.form.get("reservation_netid", "").strip().lower()
     meal_slot_id = request.form.get("meal_slot_id", "").strip()
-    if not email or not meal_slot_id:
-        flash("Email and meal slot are required.", "danger")
+    if not netid or not meal_slot_id:
+        flash("Netid and meal slot are required.", "danger")
         return redirect(url_for("admin"))
     timestamp = datetime.now().isoformat()
     try:
         db.execute(
-            "INSERT INTO reservations (user_email, meal_slot_id, timestamp) VALUES (?, ?, ?)",
-            (email, meal_slot_id, timestamp),
+            "INSERT INTO reservations (netid, meal_slot_id, timestamp) VALUES (?, ?, ?)",
+            (netid, meal_slot_id, timestamp),
         )
         db.commit()
-        flash(f"Reservation for {email} added to meal slot {meal_slot_id}.", "success")
+        flash(f"Reservation for {netid} added to meal slot {meal_slot_id}.", "success")
     except sqlite3.IntegrityError:
         flash("Reservation already exists or error occurred.", "warning")
     return redirect(url_for("admin"))

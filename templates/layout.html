@@ -36,10 +36,17 @@
   <header>
     <h1>Charter Meals</h1>
     <div class="nav">
-      {% if session.get('admin_username') %}
-        Logged in as Admin: {{ session['admin_username'] }} | <a href="{{ url_for('admin_change_password') }}">Change Password</a> | <a href="{{ url_for('admin_logout') }}">Logout</a>
-      {% elif session.get('user_email') %}
-        Logged in as: {{ session['user_email'] }} | <a href="{{ url_for('logout') }}">Logout</a>
+      {% if request.path.startswith('/admin') %}
+        {% if session.get('admin_username') %}
+          Logged in as Admin: {{ session['admin_username'] }} | 
+          <a href="{{ url_for('admin_change_password') }}">Change Password</a> | 
+          <a href="{{ url_for('admin_logout') }}">Logout</a>
+        {% endif %}
+      {% else %}
+        {% if session.get('netid') %}
+          Logged in as: {{ session['netid'] }} | 
+          <a href="{{ url_for('logout') }}">Logout</a>
+        {% endif %}
       {% endif %}
     </div>
   </header>

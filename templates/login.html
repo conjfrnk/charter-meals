@@ -2,16 +2,16 @@
 {% block content %}
 <h2>Login</h2>
 <form method="POST" action="{{ url_for('login') }}">
-  <label for="email">Email:</label>
-  <input type="email" name="email" id="email" required>
+  <label for="netid">NetID:</label>
+  <input type="text" name="netid" id="netid" required pattern="[a-z]{2}\d{4}">
   <button type="submit">Login</button>
 </form>
 <br>
 <form method="GET" action="{{ url_for('guest_login') }}">
   <button type="submit">Proceed as Guest</button>
 </form>
-
 <footer style="margin-top: 50px; text-align: center;">
-  Created by <a href="https://conjfrnk.com" target="_blank">Connor Frank</a>, the Charter House Manager -- <a href="https://github.com/conjfrnk/charter-meals" target="_blank">GitHub</a>
+  Created by <a href="https://conjfrnk.com" target="_blank">Connor Frank</a>, the Charter House Manager -- 
+  <a href="https://github.com/conjfrnk/charter-meals" target="_blank">GitHub</a>
 </footer>
 {% endblock %}

@@ -2,21 +2,21 @@
 {% block content %}
 <h2>Admin Dashboard</h2>
 
-<h3>Upload Known Emails</h3>
+<h3>Upload Known NetIDs</h3>
 <form method="POST" action="{{ url_for('admin_upload_emails') }}" enctype="multipart/form-data">
   <input type="file" name="emails_file" accept=".txt,.csv" required>
-  <button type="submit">Upload Emails</button>
+  <button type="submit">Upload NetIDs</button>
 </form>
 
 <h3>Add a Known User</h3>
 <form method="POST" action="{{ url_for('admin_add_user') }}">
-  <input type="email" name="new_user_email" placeholder="Enter email" required>
+  <input type="text" name="new_netid" placeholder="Enter NetID" required pattern="[a-z]{2}\d{4}">
   <button type="submit">Add User</button>
 </form>
 
 <h3>Delete a Known User</h3>
 <form method="POST" action="{{ url_for('admin_delete_user') }}">
-  <input type="email" name="delete_user_email" placeholder="Enter email to delete" required>
+  <input type="text" name="delete_netid" placeholder="Enter NetID to delete" required pattern="[a-z]{2}\d{4}">
   <button type="submit">Delete User</button>
 </form>
 
@@ -24,9 +24,9 @@
 <ul>
   {% for user in users %}
     <li>
-      {{ user.email }}
+      {{ user.netid }}
       <form method="POST" action="{{ url_for('admin_delete_user') }}" style="display:inline;">
-        <input type="hidden" name="delete_user_email" value="{{ user.email }}">
+        <input type="hidden" name="delete_netid" value="{{ user.netid }}">
         <button type="submit">Delete</button>
       </form>
     </li>
@@ -39,7 +39,7 @@
   <ul>
     {% for res in group.reservations %}
       <li>
-        {{ res.user_email }} (Signed up at: {{ res.timestamp }})
+        {{ res.netid }} (Signed up at: {{ res.timestamp }})
         <form method="POST" action="{{ url_for('admin_delete_reservation', reservation_id=res.reservation_id) }}" style="display:inline;">
           <button type="submit">Delete Reservation</button>
         </form>

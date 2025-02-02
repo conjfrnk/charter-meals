@@ -1,10 +1,10 @@
+DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS reservations;
 DROP TABLE IF EXISTS meal_slots;
-DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS admins;
 
 CREATE TABLE IF NOT EXISTS users (
-    email TEXT PRIMARY KEY
+    netid TEXT PRIMARY KEY
 );
 
 CREATE TABLE IF NOT EXISTS meal_slots (
@@ -17,12 +17,11 @@ CREATE TABLE IF NOT EXISTS meal_slots (
 
 CREATE TABLE IF NOT EXISTS reservations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_email TEXT NOT NULL,
+    netid TEXT NOT NULL,
     meal_slot_id INTEGER NOT NULL,
     timestamp TEXT NOT NULL,
-    FOREIGN KEY(user_email) REFERENCES users(email),
-    FOREIGN KEY(meal_slot_id) REFERENCES meal_slots(id),
-    UNIQUE(user_email, meal_slot_id)
+    UNIQUE(netid, meal_slot_id),
+    FOREIGN KEY(netid) REFERENCES users(netid)
 );
 
 CREATE TABLE IF NOT EXISTS admins (
