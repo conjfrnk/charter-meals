@@ -60,14 +60,16 @@ csp = {
     "base-uri": ["'self'"],
     "form-action": ["'self'"],
 }
-Talisman(app, content_security_policy=csp)
+Talisman(app, content_security_policy=csp, force_https=False)
 
 # Enable CSRF Protection
 csrf = CSRFProtect(app)
 
 # Initialize Rate Limiter (using init_app to avoid duplicate key_func parameters)
 limiter = Limiter(
-    key_func=get_remote_address, default_limits=["200 per day", "50 per hour"]
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="redis://localhost:6379/0",
 )
 limiter.init_app(app)
 
