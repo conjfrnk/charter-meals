@@ -1,40 +1,31 @@
-/* Global Reset */
-* {
-  box-sizing: border-box;
+/* Ensure html and body take full height and use flexbox */
+html, body {
+  height: 100%;
   margin: 0;
   padding: 0;
 }
 
-/* Base Styles */
 body {
+  display: flex;
+  flex-direction: column;
   font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.6;
   background-color: #f8f8f8;
   color: #333;
-  /* Extra bottom padding to avoid content being hidden under a fixed footer (optional) */
-  padding-bottom: 80px;
 }
 
-/* Links */
-a {
-  color: #C5A144;  /* Yellow */
-  text-decoration: none;
+/* The wrapper takes full height and is a column flex container */
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
-a:hover {
-  text-decoration: underline;
-}
-
-/* Header Styles */
+/* Header */
 header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
   background: #561C1D;  /* Maroon */
   border-bottom: 1px solid #ccc;
-  z-index: 1000;
   padding: 10px 20px;
   display: flex;
   align-items: center;
@@ -57,7 +48,6 @@ header h1 {
   color: #fff;
 }
 
-/* Navigation in Header */
 .nav {
   font-size: 16px;
   color: #fff;
@@ -65,19 +55,18 @@ header h1 {
 
 /* Content Area */
 .content {
-  margin-top: 80px;    /* Height of the header */
-  margin-bottom: 80px; /* Height of the footer */
+  flex: 1;   /* Fills remaining space */
   padding: 20px;
 }
 
-/* Ensure list styling is preserved */
+/* Preserve bullet styling for lists */
 ul {
   list-style: disc;
   margin-left: 20px;
   padding-left: 20px;
 }
 
-/* Flash Messages */
+/* Flash messages */
 #messages {
   list-style: none;
   padding: 0;
@@ -100,12 +89,8 @@ ul {
   color: #721c24;
 }
 
-/* Footer: Fixed at bottom, full width */
+/* Footer: will follow the content and always appear as the last element */
 footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
   width: 100%;
   background-color: #561C1D; /* Maroon */
   color: #fff;
@@ -113,7 +98,7 @@ footer {
   padding: 10px 0;
 }
 
-/* Responsive Adjustments for Mobile Devices */
+/* Responsive adjustments */
 @media (max-width: 600px) {
   body {
     font-size: 18px;
