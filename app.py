@@ -51,7 +51,8 @@ logging.basicConfig(level=logging.INFO)
 # Global variable for caching meal slot generation
 last_slot_generation = None
 
-# Initialize Talisman with an updated Content Security Policy and enforce HTTPS.
+# Initialize Talisman with an updated Content Security Policy.
+# force_https is set to False because your reverse proxy already forces HTTPS.
 csp = {
     "default-src": ["'self'"],
     "script-src": ["'self'", "https://code.jquery.com", "'unsafe-inline'"],
@@ -66,7 +67,7 @@ csp = {
 Talisman(
     app,
     content_security_policy=csp,
-    force_https=True,
+    force_https=False,
     strict_transport_security=True,
     strict_transport_security_max_age=31536000,
 )
@@ -403,6 +404,7 @@ def index():
         (next_monday.isoformat(), next_sunday.isoformat()),
     )
     meal_slots = cur.fetchall()
+    # Get current total reservations per slot (only the numerical total is shown)
     slot_counts = {}
     for slot in meal_slots:
         cur = db.execute(
@@ -420,6 +422,7 @@ def index():
         else:
             order = {"brunch": 1, "dinner": 2}
         slots.sort(key=lambda s: order.get(s["meal_type"], 99))
+    # Get only the logged-in user's reservations
     cur = db.execute(
         """
         SELECT meal_slot_id FROM reservations r
@@ -512,6 +515,7 @@ def reserve():
     if pub_count > 1:
         flash("You cannot select more than 1 pub night.", "danger")
         return redirect(url_for("index"))
+    # Only delete reservations that belong to the current user
     for slot_id in to_delete:
         try:
             db.execute(

@@ -45,19 +45,17 @@ $(document).ready(function(){
     }
   }
 
-  // New function to update eligibility dynamically based on current selections.
+  // Update eligibility dynamically based on current selections.
   function updateEligibility(){
     var totalSelected = $("input[name='meal_slot']:checked").length;
     var pubSelected = $("input[name='meal_slot'][data-pub='1']:checked").length;
-    
+
     $("input[name='meal_slot']").each(function(){
-      // Check if this checkbox was originally disabled by the server.
+      // Skip if originally disabled
       var originallyDisabled = $(this).data("original-disabled");
       if(originallyDisabled){
-        // Skip updating this checkbox if originally disabled.
         return;
       }
-      // If not checked, update disabled state based on limits.
       if(!$(this).is(":checked")){
         if(totalSelected >= 2) {
           $(this).prop("disabled", true);
@@ -78,7 +76,8 @@ $(document).ready(function(){
     updateEligibility();
   });
 
-  // Call updateEligibility on page load in case some checkboxes need to be disabled initially.
+  // Initial eligibility update on page load.
   updateEligibility();
   updateTimestamp();
 });
+

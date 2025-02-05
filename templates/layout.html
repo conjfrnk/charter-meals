@@ -22,43 +22,48 @@
   <div class="wrapper">
     <header>
       <div class="header-left">
-        <img class="logo" src="{{ url_for('static', filename='pcc_logo.png') }}" alt="Logo">
+        <img class="logo" src="{{ url_for('static', filename='pcc_logo.png') }}" alt="Charter Meals logo">
         <h1>Charter Meals</h1>
       </div>
       <div class="nav">
         {% if request.path.startswith('/admin') %}
           {% if session.get('admin_username') %}
-            Logged in as Admin: {{ session['admin_username'] }}<span class="mobile-break"></span>
+            <span>Logged in as Admin: {{ session['admin_username'] }}</span>
+            <span class="mobile-break"></span>
             <a href="{{ url_for('admin_change_password') }}" style="color: #C5A144;">Change Password</a> |
             <a href="{{ url_for('admin_logout') }}" style="color: #C5A144;">Logout</a>
           {% endif %}
         {% else %}
           {% if session.get('netid') %}
-            Logged in as: {{ session['netid'] }}<span class="mobile-break"></span>
+            <span>Logged in as: {{ session['netid'] }}</span>
+            <span class="mobile-break"></span>
             <a href="{{ url_for('logout') }}" style="color: #C5A144;">Logout</a>
           {% endif %}
         {% endif %}
       </div>
     </header>
-    
+
     <!-- Mobile Banner (no dismiss button) -->
     <div class="mobile-banner">
       You are viewing the mobile version.
     </div>
-    
+
     <main class="content">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          <ul id="messages">
-            {% for category, message in messages %}
-              <li class="{{ category }}">{{ message }}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-      {% endwith %}
+      <!-- ARIA live region for flash messages -->
+      <div id="flash-messages" aria-live="polite">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <ul id="messages">
+              {% for category, message in messages %}
+                <li class="{{ category }}">{{ message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+      </div>
       {% block content %}{% endblock %}
     </main>
-    
+
     <footer>
       Created by <a href="https://conjfrnk.com" target="_blank" style="color: #C5A144;">Connor Frank</a>, the Charter House Manager --
       <a href="https://github.com/conjfrnk/charter-meals" target="_blank" style="color: #C5A144;">GitHub</a>
@@ -66,3 +71,4 @@
   </div>
 </body>
 </html>
+

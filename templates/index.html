@@ -23,8 +23,8 @@
   </ul>
 </div>
 
-<!-- Current week meal signups -->
-<h3>Meal Signups for This Week</h3>
+<!-- Your current meal signups for this week -->
+<h3>Your Meal Signups for This Week</h3>
 {% if current_meals %}
   <ul>
     {% for meal in current_meals %}
@@ -36,10 +36,11 @@
 {% endif %}
 
 <!-- Next week meal signups -->
-<h3>Meal Signups for Next Week</h3>
-<form id="mealForm" method="POST" action="{{ url_for('reserve') }}">
+<h3>Meal Options for Next Week</h3>
+<form id="mealForm" method="POST" action="{{ url_for('reserve') }}" role="form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" id="client_timestamp" name="client_timestamp" value="">
+  
   {% for day, slots in slots_by_date|dictsort %}
     <h4>{{ day }} ({{ day|dayname }})</h4>
     <ul>
@@ -48,22 +49,26 @@
         {% set full = (slot_counts[slot.id|string] >= slot.capacity) %}
         {% set ineligible = full or (is_pub and not eligible_for_pub) %}
         <li>
-          <label>
+          <label for="slot-{{ slot.id }}">
             {% if ineligible %}
-              <input type="checkbox" name="meal_slot" value="{{ slot.id }}" disabled data-original-disabled="true">
+              <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}" disabled data-original-disabled="true">
             {% else %}
-              <input type="checkbox" name="meal_slot" value="{{ slot.id }}"
+              <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}"
                      data-pub="{{ 1 if is_pub else 0 }}"
                      data-capacity="{{ slot.capacity }}"
+                     aria-describedby="count-{{ slot.id }}"
                      {% if slot.id|string in user_reservations %} checked {% endif %}>
             {% endif %}
             {{ slot.meal_type|capitalize }}{% if is_pub %} (pub night){% endif %}
           </label>
-          - <span id="count-{{ slot.id }}" data-capacity="{{ slot.capacity }}">0/{{ slot.capacity }} reservations</span>
+          - <span id="count-{{ slot.id }}" data-capacity="{{ slot.capacity }}">
+              {{ slot_counts[slot.id|string] if slot_counts[slot.id|string] is defined else 0 }}/{{ slot.capacity }} reservations
+            </span>
         </li>
       {% endfor %}
     </ul>
   {% endfor %}
+  
   {% if session["netid"] == "guest" %}
     <p style="color: red; font-weight: bold;">Guest users cannot submit reservations.</p>
     <button type="submit" disabled>Submit Reservations</button>
@@ -72,6 +77,6 @@
   {% endif %}
 </form>
 
-<!-- Mobile-only spacer -->
 <div class="mobile-spacer"></div>
 {% endblock %}
+

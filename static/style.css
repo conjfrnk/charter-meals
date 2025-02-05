@@ -130,6 +130,12 @@ input[type="checkbox"]:disabled {
   cursor: not-allowed;
 }
 
+/* Focus Styles for Accessibility */
+a:focus, button:focus, input:focus, select:focus, textarea:focus {
+  outline: 3px solid #C5A144;
+  outline-offset: 2px;
+}
+
 /* Footer */
 footer {
   width: 100%;
@@ -163,12 +169,10 @@ button:hover, input[type="submit"]:hover, a.button:hover {
 
 /* Mobile-specific Styles (max-width: 600px) */
 @media (max-width: 600px) {
-  /* Reduce overall mobile text sizes */
   body {
     font-size: 18px;
     line-height: 1.4;
   }
-  /* Header adjustments: stack header elements */
   header {
     flex-direction: column;
     align-items: center;
@@ -185,28 +189,23 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   .mobile-break {
     display: block;
   }
-  /* Increase content top margin so header doesn't cover content */
   .content {
     margin-top: 100px;
     padding: 10px;
   }
-  /* Mobile Banner: smaller text and padding */
   .mobile-banner {
     display: block;
     font-size: 12px;
     padding: 3px 0;
   }
-  /* Center flash messages with equal horizontal spacing */
   #messages {
     width: 90%;
     margin: 10px auto;
   }
-  /* Mobile Button Styling: remove native appearance and use custom styling */
   button, input[type="submit"], a.button {
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
     appearance: none !important;
-    
     display: block;
     width: 80%;
     margin: 20px auto;
@@ -225,7 +224,6 @@ button:hover, input[type="submit"]:hover, a.button:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(0,0,0,0.3);
   }
-  /* Mobile Footer: smaller text and padding */
   footer {
     position: fixed;
     bottom: 0;
@@ -235,17 +233,13 @@ button:hover, input[type="submit"]:hover, a.button:hover {
     padding: 5px 0;
     margin-top: 0;
   }
-  /* Hide dismiss buttons on mobile */
   .dismiss {
     display: none;
   }
-  /* Mobile spacer (if used) */
   .mobile-spacer {
     display: block;
     margin-bottom: 40px;
   }
-  
-  /* --- Additional Login Page Styles on Mobile --- */
   .login-header {
     text-align: center;
     font-size: 24px;
@@ -304,3 +298,4 @@ button:hover, input[type="submit"]:hover, a.button:hover {
     text-decoration: underline;
   }
 }
+
