@@ -48,7 +48,10 @@ app.config.update(
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# Initialize Talisman with an updated Content Security Policy.
+# Global variable for caching meal slot generation
+last_slot_generation = None
+
+# Initialize Talisman with an updated Content Security Policy and enforce HTTPS.
 csp = {
     "default-src": ["'self'"],
     "script-src": ["'self'", "https://code.jquery.com", "'unsafe-inline'"],
@@ -60,15 +63,21 @@ csp = {
     "base-uri": ["'self'"],
     "form-action": ["'self'"],
 }
-Talisman(app, content_security_policy=csp, force_https=False)
+Talisman(
+    app,
+    content_security_policy=csp,
+    force_https=True,
+    strict_transport_security=True,
+    strict_transport_security_max_age=31536000,
+)
 
 # Enable CSRF Protection
 csrf = CSRFProtect(app)
 
-# Initialize Rate Limiter (using init_app to avoid duplicate key_func parameters)
+# Initialize Rate Limiter (adjusted for higher traffic)
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=["200 per minute"],
     storage_uri="redis://localhost:6379/0",
 )
 limiter.init_app(app)
@@ -85,6 +94,7 @@ def get_db():
         g.db = sqlite3.connect(app.config["DATABASE"])
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON;")
+        g.db.execute("PRAGMA journal_mode=WAL;")
     return g.db
 
 
@@ -135,6 +145,14 @@ def dayname_filter(date_str):
 # Application Helpers
 # ---------------------------
 def generate_next_week_meal_slots():
+    global last_slot_generation
+    # Run only if more than 6 hours have passed
+    if (
+        last_slot_generation
+        and (datetime.now() - last_slot_generation).total_seconds() < 21600
+    ):
+        return
+    last_slot_generation = datetime.now()
     db = get_db()
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
@@ -385,7 +403,6 @@ def index():
         (next_monday.isoformat(), next_sunday.isoformat()),
     )
     meal_slots = cur.fetchall()
-    # Calculate current week counts for each slot
     slot_counts = {}
     for slot in meal_slots:
         cur = db.execute(
@@ -412,7 +429,6 @@ def index():
         (session["netid"], next_monday.isoformat(), next_sunday.isoformat()),
     )
     user_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
-    # Get the meals for the current week for display
     this_monday = date.today() - timedelta(days=date.today().weekday())
     this_sunday = this_monday + timedelta(days=6)
     cur = db.execute(
@@ -454,7 +470,6 @@ def index():
 @app.route("/reserve", methods=["POST"])
 @login_required
 def reserve():
-    # Prevent guest users from making reservations
     if session.get("netid") == "guest":
         flash("Guest users cannot submit reservations.", "danger")
         return redirect(url_for("index"))
@@ -497,23 +512,6 @@ def reserve():
     if pub_count > 1:
         flash("You cannot select more than 1 pub night.", "danger")
         return redirect(url_for("index"))
-    for slot_id in to_add:
-        cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
-        meal_slot = cur.fetchone()
-        if not meal_slot:
-            flash(f"Meal slot {slot_id} not found.", "danger")
-            return redirect(url_for("index"))
-        cur = db.execute(
-            "SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?",
-            (slot_id,),
-        )
-        count = cur.fetchone()["count"]
-        if count >= meal_slot["capacity"]:
-            flash(
-                f"{meal_slot['meal_type'].capitalize()} on {meal_slot['date']} is already full.",
-                "danger",
-            )
-            return redirect(url_for("index"))
     for slot_id in to_delete:
         try:
             db.execute(
@@ -521,21 +519,40 @@ def reserve():
                 (user_netid, slot_id),
             )
         except Exception as e:
+            logging.error(f"Error deleting reservation for slot {slot_id}: {e}")
             flash(f"Error deleting reservation for slot {slot_id}: {str(e)}", "danger")
             return redirect(url_for("index"))
     for slot_id in to_add:
         try:
+            cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
+            meal_slot = cur.fetchone()
+            if not meal_slot:
+                flash(f"Meal slot {slot_id} not found.", "danger")
+                return redirect(url_for("index"))
+            cur = db.execute(
+                "SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?",
+                (slot_id,),
+            )
+            count = cur.fetchone()["count"]
+            if count >= meal_slot["capacity"]:
+                flash(
+                    f"{meal_slot['meal_type'].capitalize()} on {meal_slot['date']} is already full.",
+                    "danger",
+                )
+                return redirect(url_for("index"))
             db.execute(
                 "INSERT INTO reservations (netid, meal_slot_id, timestamp) VALUES (?, ?, ?)",
                 (user_netid, slot_id, client_timestamp),
             )
         except Exception as e:
+            logging.error(f"Error adding reservation for slot {slot_id}: {e}")
             flash(f"Error adding reservation for slot {slot_id}: {str(e)}", "danger")
             return redirect(url_for("index"))
     try:
         db.commit()
     except Exception as e:
         db.rollback()
+        logging.error("Database commit failed: " + str(e))
         flash("Database commit failed: " + str(e), "danger")
         return redirect(url_for("index"))
     flash("Reservations updated successfully.", "success")
@@ -627,7 +644,6 @@ def admin_upload_emails():
                 flash("Error reading file.", "danger")
                 return redirect(url_for("admin"))
             lines = content.replace(",", "\n").splitlines()
-            # Validate netids: each should match two letters followed by 4 digits.
             valid_netids = []
             invalid_netids = []
             for line in lines:

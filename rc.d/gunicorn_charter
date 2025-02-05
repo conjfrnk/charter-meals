@@ -14,7 +14,7 @@ daemon="${daemon_venv}/bin/gunicorn"
 pidfile="/var/run/gunicorn_charter.pid"
 
 # Use --daemon so gunicorn forks immediately and writes its PID file.
-daemon_flags="--daemon --pid ${pidfile} --chdir ${daemon_dir} --bind 127.0.0.1:5000 app:app --workers 5"
+daemon_flags="--daemon --pid ${pidfile} --chdir ${daemon_dir} --bind 127.0.0.1:5000 app:app --workers 4 --threads 5"
 
 # Since Gunicorn daemonizes itself, we set rc_bg=NO.
 rc_bg=NO
@@ -24,3 +24,4 @@ command_user="www"
 . /etc/rc.d/rc.subr
 
 rc_cmd "$1"
+
