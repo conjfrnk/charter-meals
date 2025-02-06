@@ -300,3 +300,66 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   }
 }
 
+/* Closed Banner Styles (for when meal signups are closed) */
+.closed-banner {
+  background-color: #561C1D;
+  color: #C5A144;
+  padding: 10px;
+}
+
+.closed-banner-info {
+  background-color: #561C1D;
+  color: #C5A144;
+  border: 1px solid #561C1D;
+  padding: 10px;
+}
+
+/* Admin Dashboard Styles (moved from admin.html inline styles) */
+.admin-tabs {
+  margin-bottom: 20px;
+}
+.tablink {
+  background-color: #561C1D;
+  color: #C5A144;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-right: 5px;
+}
+.tablink.active {
+  background-color: #C5A144;
+  color: #561C1D;
+}
+.tabcontent {
+  border: 1px solid #ccc;
+  padding: 15px;
+  margin-bottom: 20px;
+  display: none;
+}
+.subtab-buttons button {
+  background-color: #561C1D;
+  color: #C5A144;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  margin-right: 5px;
+}
+.subtab-buttons button.active {
+  background-color: #C5A144;
+  color: #561C1D;
+}
+.subtab-content {
+  display: none;
+  padding: 10px;
+  border: 1px solid #ccc;
+  margin-top: 10px;
+}
+.subtab-content.active {
+  display: block;
+}
+.slot-entry {
+  border: 1px solid #aaa;
+  padding: 5px;
+  margin-bottom: 5px;
+}

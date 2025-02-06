@@ -2,29 +2,6 @@
 {% block content %}
 <h2>Admin Dashboard</h2>
 
-<!-- Main Admin Tabs -->
-<style>
-  .admin-tabs { margin-bottom: 20px; }
-  .tablink { background-color: #561C1D; color: #C5A144; border: none; padding: 10px 20px; cursor: pointer; font-size: 16px; margin-right: 5px; }
-  .tablink.active { background-color: #C5A144; color: #561C1D; }
-  .tabcontent { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; display: none; }
-  /* Reservations subtab styling with maroon and gold */
-  .subtab-buttons button {
-     background-color: #561C1D;
-     color: #C5A144;
-     border: none;
-     padding: 5px 10px;
-     cursor: pointer;
-     margin-right: 5px;
-  }
-  .subtab-buttons button.active {
-     background-color: #C5A144;
-     color: #561C1D;
-  }
-  .subtab-content { display: none; padding: 10px; border: 1px solid #ccc; margin-top: 10px; }
-  .subtab-content.active { display: block; }
-</style>
-
 <div class="admin-tabs">
   <button class="tablink" data-tab="reservations">Reservations</button>
   <button class="tablink" data-tab="users">Users</button>
@@ -68,13 +45,11 @@
             <h3>{{ weekdays[i]|capitalize }}</h3>
             {% if weekly_slots[i]|length > 0 %}
               {% for slot in weekly_slots[i] %}
-                <div style="border: 1px solid #aaa; padding: 5px; margin-bottom: 5px;">
+                <div class="slot-entry">
                   {% set key = slot.date ~ " - " ~ slot.meal_type %}
                   {% set regs = reservations_by_slot.get(key, {}).get('reservations', []) %}
                   <strong>{{ slot.meal_type|capitalize }} on {{ slot.date }}</strong>
-                  <!-- Show capacity and signup count -->
                   <p>Capacity: {{ slot.capacity }} | Signups: {{ regs|length }}</p>
-                  <!-- Manual add form (only for slots that allow it) -->
                   {% if is_pub_slot(slot) %}
                     <form method="POST" action="{{ url_for('admin_add_reservation') }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -84,7 +59,6 @@
                       <button type="submit">Add</button>
                     </form>
                   {% endif %}
-                  <!-- List registered users as an unordered list -->
                   {% if regs|length > 0 %}
                     <p>Registered Users:</p>
                     <ul>
@@ -112,7 +86,7 @@
     </div>
   </div>
 
-  <!-- Users Tab -->
+  <!-- Users Tab (unchanged) -->
   <div id="users" class="tabcontent">
     <h3>Upload Known NetIDs</h3>
     <form method="POST" action="{{ url_for('admin_upload_emails') }}" enctype="multipart/form-data">
@@ -157,7 +131,7 @@
     </ul>
   </div>
 
-  <!-- Admins Tab -->
+  <!-- Admins Tab (unchanged) -->
   <div id="admins" class="tabcontent">
     <h3>Admin Accounts</h3>
     <ul>

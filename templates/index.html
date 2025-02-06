@@ -59,8 +59,8 @@
   </form>
 {% else %}
   <!-- When signups are closed -->
-  <h3 style="background-color: #561C1D; color: #C5A144; padding: 10px;">Meal Signups are Currently Closed</h3>
-  <div id="signup-info" style="background-color: #561C1D; color: #C5A144; border: 1px solid #561C1D; padding: 10px;">
+  <h3 class="closed-banner">Meal Signups are Currently Closed</h3>
+  <div id="signup-info" class="closed-banner-info">
     {% if meal_period_start and meal_period_end and next_signup_open and next_signup_close %}
       <p>
          Meal signups for {{ meal_period_start.strftime("%A, %B %d, %Y") }} – {{ meal_period_end.strftime("%A, %B %d, %Y") }}
