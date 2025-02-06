@@ -59,13 +59,13 @@
   </form>
 {% else %}
   <!-- When signups are closed -->
-  <h3 class="closed-banner">Meal Signups are Currently Closed</h3>
+  <h3 class="closed-banner"><span class="highlight">Meal Signups are Currently Closed</span></h3>
   <div id="signup-info" class="closed-banner-info">
     {% if meal_period_start and meal_period_end and next_signup_open and next_signup_close %}
       <p>
          Meal signups for {{ meal_period_start.strftime("%A, %B %d, %Y") }} – {{ meal_period_end.strftime("%A, %B %d, %Y") }}
-         will open on {{ next_signup_open.strftime("%A, %B %d, %Y at %I:%M %p") }} US Eastern.
-         Signups will close on {{ next_signup_close.strftime("%A, %B %d, %Y at %I:%M %p") }} US Eastern.
+         will open on <span class="highlight">{{ next_signup_open.strftime("%A, %B %d, %Y at %I:%M %p") }}</span> US Eastern.
+         Signups will close on <span class="highlight">{{ next_signup_close.strftime("%A, %B %d, %Y at %I:%M %p") }}</span> US Eastern.
       </p>
     {% else %}
       <p>Meal signups opening information is not available.</p>

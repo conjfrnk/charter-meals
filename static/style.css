@@ -300,7 +300,7 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   }
 }
 
-/* Closed Banner Styles (for when meal signups are closed) */
+/* Closed Banner Styles */
 .closed-banner {
   background-color: #561C1D;
   color: #C5A144;
@@ -314,7 +314,13 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   padding: 10px;
 }
 
-/* Admin Dashboard Styles (moved from admin.html inline styles) */
+/* Highlight dates in banner */
+.highlight {
+  color: #C5A144;
+  font-weight: bold;
+}
+
+/* Admin Dashboard Styles (if not already in your CSS) */
 .admin-tabs {
   margin-bottom: 20px;
 }
