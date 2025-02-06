@@ -21,11 +21,16 @@ CREATE TABLE IF NOT EXISTS reservations (
     meal_slot_id INTEGER NOT NULL,
     timestamp TEXT NOT NULL,
     UNIQUE(netid, meal_slot_id),
-    FOREIGN KEY(netid) REFERENCES users(netid)
+    FOREIGN KEY(netid) REFERENCES users(netid) ON DELETE CASCADE,
+    FOREIGN KEY(meal_slot_id) REFERENCES meal_slots(id) ON DELETE CASCADE
 );
+
+CREATE INDEX idx_reservations_netid ON reservations (netid);
+CREATE INDEX idx_reservations_meal_slot ON reservations (meal_slot_id);
 
 CREATE TABLE IF NOT EXISTS admins (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL
 );
+

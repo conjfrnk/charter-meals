@@ -26,6 +26,10 @@ from flask_wtf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+# --- Performance Extensions ---
+from flask_compress import Compress
+from flask_caching import Cache
+
 app = Flask(__name__)
 
 # Load secret key from secrets.txt
@@ -38,11 +42,11 @@ except FileNotFoundError:
         "Secret key file not found. Please create a 'secrets.txt' file with a generated secret key."
     )
 
-# Secure session cookie settings
+# Secure session cookie settings (using SameSite=Strict)
 app.config.update(
     SESSION_COOKIE_SECURE=True,  # Only transmit cookie over HTTPS.
     SESSION_COOKIE_HTTPONLY=True,  # Disallow JavaScript access.
-    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SAMESITE="Strict",  # Use Strict same-site policy.
 )
 
 # Configure logging
@@ -75,10 +79,10 @@ Talisman(
 # Enable CSRF Protection
 csrf = CSRFProtect(app)
 
-# Initialize Rate Limiter (adjusted for higher traffic)
+# Initialize Rate Limiter (adjusted for higher traffic: 300 requests per minute)
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=["200 per minute"],
+    default_limits=["300 per minute"],
     storage_uri="redis://localhost:6379/0",
 )
 limiter.init_app(app)
@@ -86,13 +90,25 @@ limiter.init_app(app)
 # Database location as specified
 app.config["DATABASE"] = "/var/www/data/meals.db"
 
+# --- Performance Enhancements Setup ---
+# Enable Gzip compression
+Compress(app)
+
+# Configure caching for common routes
+cache_config = {
+    "CACHE_TYPE": "simple",  # For demonstration purposes; in production consider a more robust backend.
+    "CACHE_DEFAULT_TIMEOUT": 300,  # Cache timeout of 5 minutes.
+}
+cache = Cache(app, config=cache_config)
+
 
 # ---------------------------
 # Database Helpers
 # ---------------------------
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(app.config["DATABASE"])
+        # Added check_same_thread=False for concurrency support.
+        g.db = sqlite3.connect(app.config["DATABASE"], check_same_thread=False)
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON;")
         g.db.execute("PRAGMA journal_mode=WAL;")
@@ -564,6 +580,7 @@ def reserve():
 
 
 @app.route("/meal_counts")
+@cache.cached(timeout=30)
 def meal_counts():
     db = get_db()
     cur = db.execute(

@@ -19,7 +19,7 @@ body {
 }
 a {
   color: #C5A144;
-  text-decoration: none;
+  text-decoration: underline;
 }
 a:hover {
   text-decoration: underline;
@@ -293,6 +293,7 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   }
   .content a {
     color: #C5A144;
+    text-decoration: underline;
   }
   .content a:hover {
     text-decoration: underline;
