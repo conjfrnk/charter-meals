@@ -689,6 +689,51 @@ def admin_upload_emails():
     return redirect(url_for("admin"))
 
 
+@app.route("/admin/bulk_delete_users", methods=["POST"])
+@admin_required
+def admin_bulk_delete_users():
+    db = get_db()
+    if "delete_netids_file" in request.files:
+        f = request.files["delete_netids_file"]
+        if f:
+            try:
+                content = f.read().decode("utf-8")
+            except Exception as e:
+                flash("Error reading file: " + str(e), "danger")
+                return redirect(url_for("admin"))
+            # Split the content on newlines or commas
+            netid_candidates = re.split(r"[\n,]+", content)
+            valid_netids = []
+            invalid_netids = []
+            for netid in netid_candidates:
+                netid = netid.strip().lower()
+                if netid:
+                    if re.match(r"^[a-z]{2}\d{4}$", netid):
+                        valid_netids.append(netid)
+                    else:
+                        invalid_netids.append(netid)
+            removed = []
+            not_found = []
+            for netid in valid_netids:
+                cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
+                if cur.fetchone():
+                    db.execute("DELETE FROM users WHERE netid = ?", (netid,))
+                    removed.append(netid)
+                else:
+                    not_found.append(netid)
+            db.commit()
+            flash(
+                f"Bulk deletion complete: {len(removed)} netIDs removed, "
+                f"{len(not_found)} netIDs not found, and {len(invalid_netids)} invalid netIDs.",
+                "success",
+            )
+        else:
+            flash("No file selected.", "danger")
+    else:
+        flash("No file uploaded.", "danger")
+    return redirect(url_for("admin"))
+
+
 @app.route("/admin/add_user", methods=["POST"])
 @admin_required
 def admin_add_user():

@@ -10,6 +10,14 @@
   <button type="submit">Upload NetIDs</button>
 </form>
 
+<!-- Bulk Remove NetIDs -->
+<h3>Bulk Remove NetIDs</h3>
+<form method="POST" action="{{ url_for('admin_bulk_delete_users') }}" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="file" name="delete_netids_file" accept=".txt,.csv" required>
+  <button type="submit">Bulk Remove NetIDs</button>
+</form>
+
 <!-- Add a Known User -->
 <h3>Add a Known User</h3>
 <form method="POST" action="{{ url_for('admin_add_user') }}">
@@ -32,13 +40,11 @@
   {% for user in users %}
     <li>
       {{ user.netid }}
-      {% if is_super_admin %}
-        <form method="POST" action="{{ url_for('admin_delete_user') }}" style="display:inline;">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="delete_netid" value="{{ user.netid }}">
-          <button type="submit">Delete</button>
-        </form>
-      {% endif %}
+      <form method="POST" action="{{ url_for('admin_delete_user') }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="delete_netid" value="{{ user.netid }}">
+        <button type="submit">Delete</button>
+      </form>
     </li>
   {% endfor %}
 </ul>
