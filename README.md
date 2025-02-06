@@ -2,7 +2,7 @@
 
 **Version:** v1.0.0
 
-Charter Meals is a web application for managing meal sign-ups for the Princeton Charter Club. This project is built with Flask and includes many features, as detailed below:
+[Charter Meals](https://chartermeals.com) is a web application for managing meal sign-ups for the [Princeton Charter Club](https://charterclub.org). This project is built with Flask and includes many features, as detailed below:
 
 ## Features
 
