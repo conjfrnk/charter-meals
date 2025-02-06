@@ -2,120 +2,223 @@
 {% block content %}
 <h2>Admin Dashboard</h2>
 
-<!-- Upload Known NetIDs -->
-<h3>Upload Known NetIDs</h3>
-<form method="POST" action="{{ url_for('admin_upload_emails') }}" enctype="multipart/form-data">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <input type="file" name="emails_file" accept=".txt,.csv" required>
-  <button type="submit">Upload NetIDs</button>
-</form>
-
-<!-- Bulk Remove NetIDs -->
-<h3>Bulk Remove NetIDs</h3>
-<form method="POST" action="{{ url_for('admin_bulk_delete_users') }}" enctype="multipart/form-data">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <input type="file" name="delete_netids_file" accept=".txt,.csv" required>
-  <button type="submit">Bulk Remove NetIDs</button>
-</form>
-
-<!-- Add a Known User -->
-<h3>Add a Known User</h3>
-<form method="POST" action="{{ url_for('admin_add_user') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <input type="text" name="new_netid" placeholder="Enter netID" required pattern="[a-z]{2}\d{4}">
-  <button type="submit">Add User</button>
-</form>
-
-<!-- Delete a Known User -->
-<h3>Delete a Known User</h3>
-<form method="POST" action="{{ url_for('admin_delete_user') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <input type="text" name="delete_netid" placeholder="Enter netID to delete" required pattern="[a-z]{2}\d{4}">
-  <button type="submit">Delete User</button>
-</form>
-
-<!-- Known Users List -->
-<h3>Known Users</h3>
-<ul>
-  {% for user in users %}
-    <li>
-      {{ user.netid }}
-      <form method="POST" action="{{ url_for('admin_delete_user') }}" style="display:inline;">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="delete_netid" value="{{ user.netid }}">
-        <button type="submit">Delete</button>
-      </form>
-    </li>
-  {% endfor %}
-</ul>
-
-<!-- Meal Reservations Section -->
-<h3>Meal Reservations</h3>
-{% for key, group in reservations_by_slot.items() %}
-  <h4>{{ key }}</h4>
-  <ul>
-    {% for res in group.reservations %}
-      <li>
-        {{ res.netid }} (Signed up at: {{ res.timestamp }})
-        <form method="POST" action="{{ url_for('admin_delete_reservation', reservation_id=res.reservation_id) }}" style="display:inline;">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit">Delete Reservation</button>
-        </form>
-      </li>
-    {% endfor %}
-  </ul>
-{% endfor %}
-
-<!-- CSV Downloads -->
-<h3>Download CSV for Specific Weeks (Newest on Top)</h3>
-<ul>
-  {% for week in week_list %}
-    <li>
-      Week starting {{ week.isoformat() }}:
-      <a href="{{ url_for('admin_download_meal_signups_week', week_start=week.isoformat()) }}">Download CSV</a>
-    </li>
-  {% endfor %}
-</ul>
-
-<h3>Download CSV for All Reservations</h3>
-<a href="{{ url_for('admin_download_all_meal_signups') }}">Download CSV</a>
-
-<!-- Admin Accounts Section -->
-<h3>Admin Accounts</h3>
-<ul>
-  {% for admin in admin_accounts %}
-    <li>
-      {{ admin }}
-      {% if is_super_admin and admin != "admin" %}
-        <form method="POST" action="{{ url_for('admin_delete_admin', username=admin) }}" style="display:inline;">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit">Delete</button>
-        </form>
-      {% endif %}
-    </li>
-  {% endfor %}
-</ul>
-
-{% if is_super_admin %}
-<h3>Add New Admin Account</h3>
-<form method="POST" action="{{ url_for('admin_add_admin') }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <input type="text" name="new_admin_username" placeholder="New admin username" required>
-  <input type="password" id="new_admin_password" name="new_admin_password" placeholder="New admin password" required>
-  <button type="button" onclick="togglePassword('new_admin_password', this)">Show Password</button>
-  <button type="submit">Add Admin</button>
-</form>
-<script>
-function togglePassword(fieldId, btn) {
-  var input = document.getElementById(fieldId);
-  if (input.type === "password") {
-    input.type = "text";
-    btn.textContent = "Hide Password";
-  } else {
-    input.type = "password";
-    btn.textContent = "Show Password";
+<!-- Main Admin Tabs -->
+<style>
+  .admin-tabs { margin-bottom: 20px; }
+  .tablink { background-color: #561C1D; color: #C5A144; border: none; padding: 10px 20px; cursor: pointer; font-size: 16px; margin-right: 5px; }
+  .tablink.active { background-color: #C5A144; color: #561C1D; }
+  .tabcontent { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; display: none; }
+  /* Reservations subtab styling with maroon and gold */
+  .subtab-buttons button {
+     background-color: #561C1D;
+     color: #C5A144;
+     border: none;
+     padding: 5px 10px;
+     cursor: pointer;
+     margin-right: 5px;
   }
-}
-</script>
-{% endif %}
+  .subtab-buttons button.active {
+     background-color: #C5A144;
+     color: #561C1D;
+  }
+  .subtab-content { display: none; padding: 10px; border: 1px solid #ccc; margin-top: 10px; }
+  .subtab-content.active { display: block; }
+</style>
+
+<div class="admin-tabs">
+  <button class="tablink" data-tab="reservations">Reservations</button>
+  <button class="tablink" data-tab="users">Users</button>
+  <button class="tablink" data-tab="admins">Admins</button>
+  <button class="tablink" data-tab="settings">Settings</button>
+</div>
+
+<div class="tab-contents">
+  <!-- Reservations Tab -->
+  <div id="reservations" class="tabcontent">
+    <div class="reservations-subtabs">
+      <div class="subtab-buttons">
+         <button class="subtab-btn" data-subtab="download">Download</button>
+         <button class="subtab-btn" data-subtab="monday">Monday</button>
+         <button class="subtab-btn" data-subtab="tuesday">Tuesday</button>
+         <button class="subtab-btn" data-subtab="wednesday">Wednesday</button>
+         <button class="subtab-btn" data-subtab="thursday">Thursday</button>
+         <button class="subtab-btn" data-subtab="friday">Friday</button>
+         <button class="subtab-btn" data-subtab="saturday">Saturday</button>
+         <button class="subtab-btn" data-subtab="sunday">Sunday</button>
+      </div>
+      <div class="subtab-contents">
+         <!-- Download Subtab -->
+         <div id="download" class="subtab-content">
+            <h3>Download CSV</h3>
+            <ul>
+              {% for week in week_list %}
+                <li>
+                  Week starting {{ week.isoformat() }}:
+                  <a href="{{ url_for('admin_download_meal_signups_week', week_start=week.isoformat()) }}">Download CSV</a>
+                </li>
+              {% endfor %}
+            </ul>
+            <h3>Download All Reservations</h3>
+            <a href="{{ url_for('admin_download_all_meal_signups') }}">Download CSV</a>
+         </div>
+         <!-- Day Subtabs -->
+         {% set weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] %}
+         {% for i in range(7) %}
+         <div id="{{ weekdays[i] }}" class="subtab-content">
+            <h3>{{ weekdays[i]|capitalize }}</h3>
+            {% if weekly_slots[i]|length > 0 %}
+              {% for slot in weekly_slots[i] %}
+                <div style="border: 1px solid #aaa; padding: 5px; margin-bottom: 5px;">
+                  {% set key = slot.date ~ " - " ~ slot.meal_type %}
+                  {% set regs = reservations_by_slot.get(key, {}).get('reservations', []) %}
+                  <strong>{{ slot.meal_type|capitalize }} on {{ slot.date }}</strong>
+                  <!-- Show capacity and signup count -->
+                  <p>Capacity: {{ slot.capacity }} | Signups: {{ regs|length }}</p>
+                  <!-- Manual add form (only for slots that allow it) -->
+                  {% if is_pub_slot(slot) %}
+                    <form method="POST" action="{{ url_for('admin_add_reservation') }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="meal_slot_id" value="{{ slot.id }}">
+                      <label for="reservation_netid_{{ slot.id }}">Add NetID(s) (comma-separated):</label>
+                      <input type="text" name="reservation_netid" id="reservation_netid_{{ slot.id }}">
+                      <button type="submit">Add</button>
+                    </form>
+                  {% endif %}
+                  <!-- List registered users as an unordered list -->
+                  {% if regs|length > 0 %}
+                    <p>Registered Users:</p>
+                    <ul>
+                      {% for reg in regs %}
+                        <li>
+                          {{ reg.netid }}
+                          <form method="POST" action="{{ url_for('admin_delete_reservation', reservation_id=reg.reservation_id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this registration?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit">Delete</button>
+                          </form>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  {% else %}
+                    <p>No registered users.</p>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            {% else %}
+              <p>No meal slots for this day.</p>
+            {% endif %}
+         </div>
+         {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Users Tab -->
+  <div id="users" class="tabcontent">
+    <h3>Upload Known NetIDs</h3>
+    <form method="POST" action="{{ url_for('admin_upload_emails') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="file" name="emails_file" accept=".txt,.csv" required>
+      <button type="submit">Upload NetIDs</button>
+    </form>
+
+    <h3>Bulk Remove NetIDs</h3>
+    <form method="POST" action="{{ url_for('admin_bulk_delete_users') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="file" name="delete_netids_file" accept=".txt,.csv" required>
+      <button type="submit">Bulk Remove NetIDs</button>
+    </form>
+
+    <h3>Add Known User(s)</h3>
+    <form method="POST" action="{{ url_for('admin_add_user') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="text" name="new_netid" placeholder="Enter netID(s), comma‐separated" required pattern="[a-z]{2}\d{4}(,\s*[a-z]{2}\d{4})*">
+      <button type="submit">Add User(s)</button>
+    </form>
+
+    <h3>Delete Known User(s)</h3>
+    <form method="POST" action="{{ url_for('admin_delete_user') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="text" name="delete_netid" placeholder="Enter netID(s), comma‐separated" required pattern="[a-z]{2}\d{4}(,\s*[a-z]{2}\d{4})*">
+      <button type="submit" onclick="return confirm('Are you sure you want to delete these user(s)?');">Delete User(s)</button>
+    </form>
+
+    <h3>Known Users</h3>
+    <ul>
+      {% for user in users %}
+        <li>
+          {{ user.netid }}
+          <form method="POST" action="{{ url_for('admin_delete_user') }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this user?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="delete_netid" value="{{ user.netid }}">
+            <button type="submit">Delete</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <!-- Admins Tab -->
+  <div id="admins" class="tabcontent">
+    <h3>Admin Accounts</h3>
+    <ul>
+      {% for admin in admin_accounts %}
+        <li>
+          {{ admin }}
+          {% if is_super_admin and admin != "admin" %}
+            <form method="POST" action="{{ url_for('admin_delete_admin', username=admin) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this admin?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit">Delete</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+
+    {% if is_super_admin %}
+    <h3>Add New Admin Account</h3>
+    <form method="POST" action="{{ url_for('admin_add_admin') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="text" name="new_admin_username" placeholder="New admin username" required>
+      <input type="password" id="new_admin_password" name="new_admin_password" placeholder="New admin password" required>
+      <button type="button" class="toggle-password" data-target="new_admin_password">Show Password</button>
+      <button type="submit">Add Admin</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- Settings Tab -->
+  <div id="settings" class="tabcontent">
+    <h3>Reservation Settings</h3>
+    <form method="POST" action="{{ url_for('admin_settings') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="manual_status">Reservation Mode:</label>
+      <select name="manual_status" id="manual_status">
+         <option value="auto" {% if reservation_status == "auto" %}selected{% endif %}>Automatic</option>
+         <option value="open" {% if reservation_status == "open" %}selected{% endif %}>Manually Open</option>
+         <option value="closed" {% if reservation_status == "closed" %}selected{% endif %}>Manually Closed</option>
+      </select>
+      <br>
+      <h4>Automatic Settings</h4>
+      <label for="reservation_open_day">Reservation Open Day:</label>
+      <select name="reservation_open_day" id="reservation_open_day">
+         {% for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] %}
+           <option value="{{ day }}" {% if reservation_open_day == day %}selected{% endif %}>{{ day }}</option>
+         {% endfor %}
+      </select>
+      <label for="reservation_open_time">Time:</label>
+      <input type="time" name="reservation_open_time" id="reservation_open_time" value="{{ reservation_open_time }}">
+      <br>
+      <label for="reservation_close_day">Reservation Close Day:</label>
+      <select name="reservation_close_day" id="reservation_close_day">
+         {% for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] %}
+           <option value="{{ day }}" {% if reservation_close_day == day %}selected{% endif %}>{{ day }}</option>
+         {% endfor %}
+      </select>
+      <label for="reservation_close_time">Time:</label>
+      <input type="time" name="reservation_close_time" id="reservation_close_time" value="{{ reservation_close_time }}">
+      <br>
+      <button type="submit">Save Settings</button>
+    </form>
+  </div>
+</div>
 {% endblock %}
