@@ -7,6 +7,16 @@
   Contact our kitchen managers, Tiffany and Hector, if you have any questions.
 </p>
 
+<div id="rules">
+  <h3>Rules for Meal Sign-Up</h3>
+  <ul>
+    <li>You can sign up for a maximum of 2 meals per week (pub nights count as one meal).</li>
+    <li>In order to give everyone a chance to attend pub night, you may select at most 1 pub night (dinner of Tuesday or Thursday).</li>
+    <li>Again for the sake of fairness, if you attended a pub night last week, you cannot sign up for one this week (i.e. you can only sign up for a pub night every two weeks).</li>
+    <li>If a meal time is full or otherwise ineligible, the checkbox will not appear.</li>
+  </ul>
+</div>
+
 <!-- Display current week's signups -->
 <h3>Your Meal Signups for This Week</h3>
 {% if current_meals %}
@@ -51,7 +61,7 @@
       </ul>
     {% endfor %}
     {% if session["netid"] == "guest" %}
-      <p style="color: red; font-weight: bold;">Guest users cannot submit reservations.</p>
+      <p class="error-message">Guest users cannot submit reservations.</p>
       <button type="submit" disabled>Submit Reservations</button>
     {% else %}
       <button type="submit">Submit Reservations</button>

@@ -65,7 +65,7 @@
                       {% for reg in regs %}
                         <li>
                           {{ reg.netid }}
-                          <form method="POST" action="{{ url_for('admin_delete_reservation', reservation_id=reg.reservation_id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this registration?');">
+                          <form method="POST" action="{{ url_for('admin_delete_reservation', reservation_id=reg.reservation_id) }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this registration?');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit">Delete</button>
                           </form>
@@ -121,7 +121,7 @@
       {% for user in users %}
         <li>
           {{ user.netid }}
-          <form method="POST" action="{{ url_for('admin_delete_user') }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this user?');">
+          <form method="POST" action="{{ url_for('admin_delete_user') }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this user?');">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="delete_netid" value="{{ user.netid }}">
             <button type="submit">Delete</button>
@@ -139,7 +139,7 @@
         <li>
           {{ admin }}
           {% if is_super_admin and admin != "admin" %}
-            <form method="POST" action="{{ url_for('admin_delete_admin', username=admin) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this admin?');">
+            <form method="POST" action="{{ url_for('admin_delete_admin', username=admin) }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this admin?');">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit">Delete</button>
             </form>

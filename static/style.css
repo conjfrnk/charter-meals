@@ -112,7 +112,7 @@ li {
 }
 #messages li.danger {
   background-color: #f8d7da;
-  color: #721c24;
+  color: #721c1d;
 }
 
 /* Dismiss Button */
@@ -145,6 +145,24 @@ footer {
   padding: 10px 0;
   margin-top: 50px;
   margin-bottom: 0;
+}
+
+/* Footer Container */
+.footer-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+.footer-version {
+  font-size: 14px;
+  color: #C5A144;
+  padding: 5px;
+}
+.footer-info {
+  font-size: 14px;
 }
 
 /* Desktop Button Styling */
@@ -254,6 +272,10 @@ button:hover, input[type="submit"]:hover, a.button:hover {
     font-size: 20px;
     margin: 10px auto;
     display: block;
+  }
+  /* Hide version on mobile */
+  .hide-mobile {
+    display: none;
   }
 }
 
@@ -368,4 +390,14 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   border: 1px solid #aaa;
   padding: 5px;
   margin-bottom: 5px;
+}
+
+/* Additional classes moved from inline styles */
+.error-message {
+  color: red;
+  font-weight: bold;
+}
+
+.inline-form {
+  display: inline;
 }

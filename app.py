@@ -60,7 +60,7 @@ last_slot_generation = None
 csp = {
     "default-src": ["'self'"],
     "script-src": ["'self'", "https://code.jquery.com"],
-    "style-src": ["'self'", "https://fonts.googleapis.com"],
+    "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
     "font-src": ["'self'", "https://fonts.gstatic.com"],
     "img-src": ["'self'"],
     "frame-ancestors": ["'none'"],
@@ -1071,6 +1071,20 @@ def admin_delete_reservation(reservation_id):
 @app.errorhandler(401)
 def unauthorized(error):
     return redirect(url_for("admin_login"))
+
+
+# ---------------------------
+# Context Processor for Version
+# ---------------------------
+@app.context_processor
+def inject_version():
+    try:
+        version_path = os.path.join(os.path.dirname(__file__), "VERSION")
+        with open(version_path, "r") as vf:
+            version = vf.read().strip()
+    except Exception:
+        version = "unknown"
+    return {"version": version}
 
 
 if __name__ == "__main__":

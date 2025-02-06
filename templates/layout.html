@@ -23,14 +23,14 @@
           {% if session.get('admin_username') %}
             <span>Logged in as Admin: {{ session['admin_username'] }}</span>
             <span class="mobile-break"></span>
-            <a href="{{ url_for('admin_change_password') }}" style="color: #C5A144;">Change Password</a> |
-            <a href="{{ url_for('admin_logout') }}" style="color: #C5A144;">Logout</a>
+            <a href="{{ url_for('admin_change_password') }}">Change Password</a> |
+            <a href="{{ url_for('admin_logout') }}">Logout</a>
           {% endif %}
         {% else %}
           {% if session.get('netid') %}
             <span>Logged in as: {{ session['netid'] }}</span>
             <span class="mobile-break"></span>
-            <a href="{{ url_for('logout') }}" style="color: #C5A144;">Logout</a>
+            <a href="{{ url_for('logout') }}">Logout</a>
           {% endif %}
         {% endif %}
       </div>
@@ -50,10 +50,16 @@
       {% block content %}{% endblock %}
     </main>
     <footer>
-      Created by <a href="https://conjfrnk.com" target="_blank" style="color: #C5A144;">Connor Frank</a>, the Charter House Manager --
-      <a href="https://github.com/conjfrnk/charter-meals" target="_blank" style="color: #C5A144;">GitHub</a>
+      <div class="footer-container">
+        <div class="footer-version hide-mobile">
+          {{ version }}
+        </div>
+        <div class="footer-info">
+          Created by <a href="https://conjfrnk.com" target="_blank">Connor Frank</a>, the Charter House Manager --
+          <a href="https://github.com/conjfrnk/charter-meals" target="_blank">GitHub</a>
+        </div>
+      </div>
     </footer>
   </div>
 </body>
 </html>
-
