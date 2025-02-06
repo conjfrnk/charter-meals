@@ -136,57 +136,34 @@ a:focus, button:focus, input:focus, select:focus, textarea:focus {
   outline-offset: 2px;
 }
 
-/* Footer */
+/* Footer (Pinned to Bottom on All Devices) */
 footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
   width: 100%;
   background-color: #561C1D;
   color: #fff;
-  text-align: center;
   padding: 10px 0;
-  margin-top: 50px;
-  margin-bottom: 0;
+  text-align: center;
 }
 
-/* Footer Container */
-.footer-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-.footer-version {
+/* Footer Blurb */
+.footer-blurb {
+  width: 100%;
+  text-align: center;
   font-size: 14px;
-  color: #C5A144;
-  padding: 5px;
-}
-.footer-info {
-  font-size: 14px;
-}
-
-/* Desktop Button Styling */
-button, input[type="submit"], a.button {
-  display: inline-block;
-  margin: 5px;
-  padding: 10px 20px;
-  text-decoration: none;
-  background-color: #561C1D;
-  color: #C5A144;
-  border: 2px solid transparent;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background 0.3s ease, transform 0.3s ease,
-              box-shadow 0.3s ease, border-color 0.3s ease;
-}
-button:hover, input[type="submit"]:hover, a.button:hover {
-  border-color: #C5A144;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.3);
 }
 
 /* Mobile-specific Styles (max-width: 600px) */
 @media (max-width: 600px) {
+  footer {
+    font-size: 12px;
+    padding: 8px 0;
+  }
+  .footer-blurb {
+    font-size: 12px;
+  }
   body {
     font-size: 18px;
     line-height: 1.4;
@@ -242,41 +219,6 @@ button:hover, input[type="submit"]:hover, a.button:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(0,0,0,0.3);
   }
-  footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    font-size: 12px;
-    padding: 5px 0;
-    margin-top: 0;
-  }
-  .dismiss {
-    display: none;
-  }
-  .mobile-spacer {
-    display: block;
-    margin-bottom: 40px;
-  }
-  .login-header {
-    text-align: center;
-    font-size: 24px;
-    margin-bottom: 20px;
-  }
-  label.mobile-hide {
-    display: none;
-  }
-  form input[type="text"] {
-    width: 90%;
-    padding: 12px;
-    font-size: 20px;
-    margin: 10px auto;
-    display: block;
-  }
-  /* Hide version on mobile */
-  .hide-mobile {
-    display: none;
-  }
 }
 
 /* Dark Mode */
@@ -328,14 +270,12 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   color: #C5A144;
   padding: 10px;
 }
-
 .closed-banner-info {
   background-color: #561C1D;
   color: #C5A144;
   border: 1px solid #561C1D;
   padding: 10px;
 }
-
 /* Highlight dates in banner */
 .highlight {
   color: #C5A144;
@@ -397,7 +337,6 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   color: red;
   font-weight: bold;
 }
-
 .inline-form {
   display: inline;
 }
