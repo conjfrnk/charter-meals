@@ -155,11 +155,31 @@ footer {
   font-size: 14px;
 }
 
+/* Button Styles (with !important for higher specificity) */
+button, input[type="submit"], a.button {
+  display: inline-block !important;
+  margin: 5px !important;
+  padding: 10px 20px !important;
+  text-decoration: none !important;
+  background-color: #561C1D !important;
+  color: #C5A144 !important;
+  border: 2px solid transparent !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  transition: background 0.3s ease, transform 0.3s ease,
+              box-shadow 0.3s ease, border-color 0.3s ease !important;
+}
+button:hover, input[type="submit"]:hover, a.button:hover {
+  border-color: #C5A144 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.3) !important;
+}
+
 /* Mobile-specific Styles (max-width: 600px) */
 @media (max-width: 600px) {
   footer {
     font-size: 12px;
-    padding: 8px 0;
+    padding: 8px 10px;
   }
   .footer-blurb {
     font-size: 12px;
@@ -207,17 +227,17 @@ footer {
     padding: 10px 0;
     font-size: 18px;
     text-align: center;
-    background-color: #561C1D;
-    color: #C5A144;
-    border: 2px solid transparent;
-    border-radius: 5px;
+    background-color: #561C1D !important;
+    color: #C5A144 !important;
+    border: 2px solid transparent !important;
+    border-radius: 5px !important;
     transition: background 0.3s ease, transform 0.3s ease,
-                box-shadow 0.3s ease, border-color 0.3s ease;
+                box-shadow 0.3s ease, border-color 0.3s ease !important;
   }
   button:hover, input[type="submit"]:hover, a.button:hover {
-    border-color: #C5A144;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    border-color: #C5A144 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.3) !important;
   }
 }
 

@@ -43,8 +43,8 @@
           {% set full = (slot_counts[slot.id|string] >= slot.capacity) %}
           <li>
             <label for="slot-{{ slot.id }}">
-              {% if full %}
-                <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}" disabled>
+              {% if full or (is_pub and (user_has_pub_selected or user_has_pub_current)) %}
+                <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}" disabled class="perma-disabled">
               {% else %}
                 <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}"
                        data-pub="{{ 1 if is_pub else 0 }}"
@@ -62,10 +62,12 @@
     {% endfor %}
     {% if session["netid"] == "guest" %}
       <p class="error-message">Guest users cannot submit reservations.</p>
-      <button type="submit" disabled>Submit Reservations</button>
     {% else %}
       <button type="submit">Submit Reservations</button>
     {% endif %}
+    <br>
+    <br>
+    <br>
   </form>
 {% else %}
   <!-- When signups are closed -->

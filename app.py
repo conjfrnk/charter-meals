@@ -59,7 +59,7 @@ last_slot_generation = None
 # New Content Security Policy as required.
 csp = {
     "default-src": ["'self'"],
-    "script-src": ["'self'", "https://code.jquery.com"],
+    "script-src": ["'self'", "https://code.jquery.com", "'unsafe-inline'"],
     "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
     "font-src": ["'self'", "https://fonts.gstatic.com"],
     "img-src": ["'self'"],
@@ -586,9 +586,13 @@ def index():
             (slot["id"],),
         )
         slot_counts[str(slot["id"])] = cur.fetchone()["count"]
+
+    # Group meal slots by date
     slots_by_date = {}
     for slot in meal_slots:
         slots_by_date.setdefault(slot["date"], []).append(slot)
+
+    # Sort slots within each day
     for day, slots in slots_by_date.items():
         day_obj = datetime.strptime(day, "%Y-%m-%d").date()
         order = (
@@ -597,6 +601,8 @@ def index():
             else {"brunch": 1, "dinner": 2}
         )
         slots.sort(key=lambda s: order.get(s["meal_type"], 99))
+
+    # Get next-week reservations for the current user.
     cur = db.execute(
         """
         SELECT meal_slot_id FROM reservations r
@@ -606,6 +612,30 @@ def index():
         (session["netid"], next_monday.isoformat(), next_sunday.isoformat()),
     )
     user_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
+
+    # Build a dictionary of meal_slots keyed by id (as a string)
+    meal_slots_dict = {str(slot["id"]): slot for slot in meal_slots}
+
+    # Determine if the user has already selected a pub night for next week.
+    user_has_pub_selected = any(
+        is_pub_slot(meal_slots_dict[slot_id])
+        for slot_id in user_reservations
+        if slot_id in meal_slots_dict
+    )
+
+    # Determine if the user is registered for a pub night in the current week.
+    current_week_start = today - timedelta(days=today.weekday())
+    current_week_end = current_week_start + timedelta(days=6)
+    cur = db.execute(
+        "SELECT ms.* FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id WHERE r.netid = ? AND ms.date BETWEEN ? AND ?",
+        (
+            session["netid"],
+            current_week_start.isoformat(),
+            current_week_end.isoformat(),
+        ),
+    )
+    user_has_pub_current = any(is_pub_slot(row) for row in cur.fetchall())
+
     cur = db.execute(
         """
         SELECT ms.date, ms.meal_type FROM reservations r
@@ -615,8 +645,8 @@ def index():
         """,
         (
             session["netid"],
-            (today - timedelta(days=today.weekday())).isoformat(),
-            (today - timedelta(days=today.weekday()) + timedelta(days=6)).isoformat(),
+            current_week_start.isoformat(),
+            current_week_end.isoformat(),
         ),
     )
     current_meals = cur.fetchall()
@@ -684,7 +714,6 @@ def index():
     elif reservation_status == "closed":
         signup_open = False
 
-    # Compute meal period for which signups apply (the week starting on the Monday immediately after the current signup period ends).
     meal_period_start = None
     meal_period_end = None
     if next_signup_close:
@@ -705,6 +734,8 @@ def index():
         user_reservations=user_reservations,
         meal_period_start=meal_period_start,
         meal_period_end=meal_period_end,
+        user_has_pub_selected=user_has_pub_selected,
+        user_has_pub_current=user_has_pub_current,
     )
 
 
