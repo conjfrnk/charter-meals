@@ -134,4 +134,8 @@ $(document).ready(function(){
 
   // Call updatePubNightCheckboxes initially
   updatePubNightCheckboxes();
+
+  // NEW: Trigger a change event on all checkboxes to ensure that if 2 meals are already selected,
+  // all other unchecked checkboxes (pub or non-pub) are disabled.
+  $('input[name="meal_slot"]').trigger('change');
 });
