@@ -453,6 +453,17 @@ def admin():
     for slot in week_meal_slots:
         d = datetime.strptime(slot["date"], "%Y-%m-%d").date()
         weekly_slots[d.weekday()].append(slot)
+    # --- NEW: Sort each day's slots by meal order ---
+    for weekday, slots in weekly_slots.items():
+        if slots:
+            # Determine ordering mapping: weekdays (Monday-Friday) use breakfast, lunch, dinner;
+            # weekends use brunch, dinner.
+            d = datetime.strptime(slots[0]["date"], "%Y-%m-%d").date()
+            if d.weekday() < 5:
+                order = {"breakfast": 1, "lunch": 2, "dinner": 3}
+            else:
+                order = {"brunch": 1, "dinner": 2}
+            slots.sort(key=lambda s: order.get(s["meal_type"].lower(), 99))
 
     # Get reservation settings
     cur = db.execute(
@@ -619,6 +630,11 @@ def index():
         (session["netid"], next_monday.isoformat(), next_sunday.isoformat()),
     )
     manual_pub_info = cur.fetchone()
+    # --- NEW: If manual_pub_info exists, add dayname for banner ---
+    if manual_pub_info:
+        d = datetime.strptime(manual_pub_info["date"], "%Y-%m-%d").date()
+        manual_pub_info = dict(manual_pub_info)
+        manual_pub_info["dayname"] = d.strftime("%A")
 
     # Determine if the user is registered for a pub night in the current week.
     current_week_start = today - timedelta(days=today.weekday())
