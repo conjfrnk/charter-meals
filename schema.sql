@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS meal_slots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT NOT NULL,        
-    meal_type TEXT NOT NULL,   
+    date TEXT NOT NULL,
+    meal_type TEXT NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 25,
     UNIQUE(date, meal_type)
 );
@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     netid TEXT NOT NULL,
     meal_slot_id INTEGER NOT NULL,
     timestamp TEXT NOT NULL,
+    added_by TEXT,  -- New column: if not NULL, indicates this reservation was manually added by an admin
     UNIQUE(netid, meal_slot_id),
     FOREIGN KEY(netid) REFERENCES users(netid) ON DELETE CASCADE,
     FOREIGN KEY(meal_slot_id) REFERENCES meal_slots(id) ON DELETE CASCADE
@@ -43,7 +44,7 @@ BEFORE INSERT ON reservations
 BEGIN
   SELECT
     CASE
-      WHEN ((SELECT COUNT(*) FROM reservations WHERE meal_slot_id = NEW.meal_slot_id) >= 
+      WHEN ((SELECT COUNT(*) FROM reservations WHERE meal_slot_id = NEW.meal_slot_id) >=
             (SELECT capacity FROM meal_slots WHERE id = NEW.meal_slot_id))
       THEN RAISE(ABORT, 'This meal slot is full.')
     END;

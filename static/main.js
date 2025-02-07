@@ -76,12 +76,13 @@ $(document).ready(function(){
     }
   });
 
-  // Limit meal selection to maximum allowed meals (2)
-  const maxMeals = 2;
+  // Limit meal selection based on the allowed number.
+  // Read the allowed maximum from the form's data attribute (default is 2).
+  const maxMeals = parseInt($("#mealForm").data("max-meals")) || 2;
   $('input[name="meal_slot"]').on('change', function(){
     // Count how many meal slots are checked overall.
     let selectedCount = $('input[name="meal_slot"]:checked').length;
-    
+
     if(selectedCount >= maxMeals){
       // Disable (gray out) any unchecked meal slot
       $('input[name="meal_slot"]').each(function(){
@@ -99,7 +100,7 @@ $(document).ready(function(){
     }
     updatePubNightCheckboxes();
   });
-  
+
   function updatePubNightCheckboxes() {
     // Check if any pub night checkbox is checked.
     let pubSelected = false;
@@ -111,20 +112,20 @@ $(document).ready(function(){
     if(pubSelected) {
       // Disable all unchecked pub night checkboxes that are not permanently disabled.
       $('input[name="meal_slot"]').each(function(){
-        if ($(this).data("pub") == 1 && !$(this).is(":checked") && !$(this).prop("disabled")) {
+        if ($(this).data("pub") == 1 && !$(this).is(":checked") && !$(this).prop("disabled")){
           $(this).prop("disabled", true).addClass("temp-disabled");
         }
       });
     } else {
       // Re-enable pub night checkboxes that were temporarily disabled (if not permanently disabled)
       $('input[name="meal_slot"]').each(function(){
-        if ($(this).data("pub") == 1 && $(this).hasClass("temp-disabled") && !$(this).hasClass("perma-disabled")) {
+        if ($(this).data("pub") == 1 && $(this).hasClass("temp-disabled") && !$(this).hasClass("perma-disabled")){
           $(this).prop("disabled", false).removeClass("temp-disabled");
         }
       });
     }
   }
-  
+
   // Call updatePubNightCheckboxes initially
   updatePubNightCheckboxes();
 });

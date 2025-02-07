@@ -105,14 +105,16 @@
     <h3>Add Known User(s)</h3>
     <form method="POST" action="{{ url_for('admin_add_user') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="text" name="new_netid" placeholder="Enter netID(s), comma‐separated" required pattern="[a-z]{2}\d{4}(,\s*[a-z]{2}\d{4})*">
+      <!-- Removed pattern attribute -->
+      <input type="text" name="new_netid" placeholder="Enter netID(s), comma‐separated" required>
       <button type="submit">Add User(s)</button>
     </form>
 
     <h3>Delete Known User(s)</h3>
     <form method="POST" action="{{ url_for('admin_delete_user') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="text" name="delete_netid" placeholder="Enter netID(s), comma‐separated" required pattern="[a-z]{2}\d{4}(,\s*[a-z]{2}\d{4})*">
+      <!-- Removed pattern attribute -->
+      <input type="text" name="delete_netid" placeholder="Enter netID(s), comma‐separated" required>
       <button type="submit" onclick="return confirm('Are you sure you want to delete these user(s)?');">Delete User(s)</button>
     </form>
 

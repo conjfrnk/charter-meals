@@ -4,7 +4,8 @@
 <form method="POST" action="{{ url_for('login') }}" role="form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="netid" class="mobile-hide">NetID:</label>
-  <input type="text" name="netid" id="netid" placeholder="NetID" required pattern="[a-z]{2}\d{4}" autocomplete="username">
+  <!-- Removed restrictive pattern attribute -->
+  <input type="text" name="netid" id="netid" placeholder="NetID" required autocomplete="username">
   <button type="submit">Login</button>
 </form>
 <br>
@@ -12,4 +13,3 @@
   <button type="submit">Proceed as Guest</button>
 </form>
 {% endblock %}
-

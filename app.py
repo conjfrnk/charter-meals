@@ -190,7 +190,6 @@ def migrate_db_command():
     existing_tables = {row["name"] for row in cur.fetchall()}
     create_stmts = get_create_statements()
     parsed_schema = parse_schema()
-
     for table, create_stmt in create_stmts.items():
         if table not in existing_tables:
             db.execute(create_stmt)
@@ -278,7 +277,7 @@ def is_pub_slot(meal_slot):
 
 
 # ---------------------------
-# Updated admin_required Decorator
+# Updated Decorators
 # ---------------------------
 def admin_required(view):
     @wraps(view)
@@ -296,9 +295,6 @@ def admin_required(view):
     return wrapped_view
 
 
-# ---------------------------
-# Added login_required Decorator
-# ---------------------------
 def login_required(view):
     @wraps(view)
     def wrapped_view(**kwargs):
@@ -416,7 +412,7 @@ def admin():
     users = cur.fetchall()
     cur = db.execute(
         """
-        SELECT r.id as reservation_id, r.netid, ms.id as meal_slot_id, ms.date, ms.meal_type, r.timestamp
+        SELECT r.id as reservation_id, r.netid, ms.id as meal_slot_id, ms.date, ms.meal_type, r.timestamp, r.added_by
         FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
         ORDER BY ms.date, ms.meal_type
@@ -458,7 +454,7 @@ def admin():
         d = datetime.strptime(slot["date"], "%Y-%m-%d").date()
         weekly_slots[d.weekday()].append(slot)
 
-    # Get reservation settings (new keys)
+    # Get reservation settings
     cur = db.execute(
         "SELECT key, value FROM settings WHERE key IN (?, ?, ?, ?, ?)",
         (
@@ -533,13 +529,7 @@ def admin_settings():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        netid = request.form["netid"].strip().lower()
-        if not re.match(r"^[a-z]{2}\d{4}$", netid):
-            flash(
-                "Invalid netid format. Must be two letters followed by four digits (e.g. ab1234).",
-                "danger",
-            )
-            return redirect(url_for("login"))
+        netid = request.form["netid"].strip()
         db = get_db()
         cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
         user = cur.fetchone()
@@ -616,12 +606,19 @@ def index():
     # Build a dictionary of meal_slots keyed by id (as a string)
     meal_slots_dict = {str(slot["id"]): slot for slot in meal_slots}
 
-    # Determine if the user has already selected a pub night for next week.
+    # Determine if the user has a pub night reservation
     user_has_pub_selected = any(
         is_pub_slot(meal_slots_dict[slot_id])
         for slot_id in user_reservations
         if slot_id in meal_slots_dict
     )
+
+    # Check if the user has been manually added to a pub night
+    cur = db.execute(
+        "SELECT ms.date, r.added_by FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id WHERE r.netid = ? AND ms.meal_type = 'dinner' AND ms.date BETWEEN ? AND ? AND r.added_by IS NOT NULL",
+        (session["netid"], next_monday.isoformat(), next_sunday.isoformat()),
+    )
+    manual_pub_info = cur.fetchone()
 
     # Determine if the user is registered for a pub night in the current week.
     current_week_start = today - timedelta(days=today.weekday())
@@ -736,6 +733,7 @@ def index():
         meal_period_end=meal_period_end,
         user_has_pub_selected=user_has_pub_selected,
         user_has_pub_current=user_has_pub_current,
+        manual_pub_info=manual_pub_info,
     )
 
 
@@ -761,6 +759,29 @@ def reserve():
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
+
+    # If the user has been manually added to a pub night, allow only one meal.
+    cur = db.execute(
+        "SELECT 1 FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id WHERE r.netid = ? AND ms.meal_type = 'dinner' AND ms.date BETWEEN ? AND ? AND r.added_by IS NOT NULL",
+        (user_netid, next_monday.isoformat(), next_sunday.isoformat()),
+    )
+    manual_pub_exists = cur.fetchone() is not None
+    max_allowed = 1 if manual_pub_exists else 2
+
+    if len(selected_slots) > max_allowed:
+        flash(f"You cannot select more than {max_allowed} meal(s) this week.", "danger")
+        return redirect(url_for("index"))
+
+    pub_count = 0
+    for slot_id in selected_slots:
+        cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
+        meal_slot = cur.fetchone()
+        if meal_slot and is_pub_slot(meal_slot):
+            pub_count += 1
+    if pub_count > 1:
+        flash("You cannot select more than 1 pub night.", "danger")
+        return redirect(url_for("index"))
+
     cur = db.execute(
         """
         SELECT meal_slot_id FROM reservations r
@@ -772,18 +793,7 @@ def reserve():
     current_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
     to_delete = current_reservations - selected_slots
     to_add = selected_slots - current_reservations
-    if len(selected_slots) > 2:
-        flash("You cannot select more than 2 meals per week.", "danger")
-        return redirect(url_for("index"))
-    pub_count = 0
-    for slot_id in selected_slots:
-        cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
-        meal_slot = cur.fetchone()
-        if meal_slot and is_pub_slot(meal_slot):
-            pub_count += 1
-    if pub_count > 1:
-        flash("You cannot select more than 1 pub night.", "danger")
-        return redirect(url_for("index"))
+
     for slot_id in to_delete:
         try:
             db.execute(
@@ -850,7 +860,7 @@ def admin_download_meal_signups_week(week_start):
     week_end_date = week_start_date + timedelta(days=6)
     cur = db.execute(
         """
-        SELECT ms.date, ms.meal_type, r.netid, r.timestamp
+        SELECT ms.date, ms.meal_type, r.netid, r.timestamp, r.added_by
         FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
         WHERE ms.date BETWEEN ? AND ?
@@ -861,9 +871,9 @@ def admin_download_meal_signups_week(week_start):
     rows = cur.fetchall()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["date", "meal", "netid"])
+    writer.writerow(["date", "meal", "netid", "added_by"])
     for row in rows:
-        writer.writerow([row["date"], row["meal_type"], row["netid"]])
+        writer.writerow([row["date"], row["meal_type"], row["netid"], row["added_by"]])
     csv_content = output.getvalue()
     output.close()
     return Response(
@@ -883,7 +893,7 @@ def admin_download_all_meal_signups():
     db = get_db()
     cur = db.execute(
         """
-        SELECT ms.date, ms.meal_type, r.netid, r.timestamp
+        SELECT ms.date, ms.meal_type, r.netid, r.timestamp, r.added_by
         FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
         ORDER BY r.timestamp ASC
@@ -892,9 +902,9 @@ def admin_download_all_meal_signups():
     rows = cur.fetchall()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["date", "meal", "netid"])
+    writer.writerow(["date", "meal", "netid", "added_by"])
     for row in rows:
-        writer.writerow([row["date"], row["meal_type"], row["netid"]])
+        writer.writerow([row["date"], row["meal_type"], row["netid"], row["added_by"]])
     csv_content = output.getvalue()
     output.close()
     return Response(
@@ -904,6 +914,9 @@ def admin_download_all_meal_signups():
     )
 
 
+# ---------------------------
+# Updated Admin Routes for User Management
+# ---------------------------
 @app.route("/admin/upload_emails", methods=["POST"])
 @admin_required
 def admin_upload_emails():
@@ -918,13 +931,10 @@ def admin_upload_emails():
                 return redirect(url_for("admin"))
             lines = content.replace(",", "\n").splitlines()
             valid_netids = []
-            invalid_netids = []
             for line in lines:
                 netid = line.strip().lower()
-                if re.match(r"^[a-z]{2}\d{4}$", netid):
+                if netid:
                     valid_netids.append(netid)
-                else:
-                    invalid_netids.append(netid)
             added = []
             skipped = []
             for netid in valid_netids:
@@ -935,52 +945,9 @@ def admin_upload_emails():
                     skipped.append(netid)
             db.commit()
             flash(
-                f"Added {len(added)} netids. Skipped {len(skipped)} duplicates. Skipped {len(invalid_netids)} invalid netids.",
+                f"Added {len(added)} netids. Skipped {len(skipped)} duplicates.",
                 "success",
             )
-    return redirect(url_for("admin"))
-
-
-@app.route("/admin/bulk_delete_users", methods=["POST"])
-@admin_required
-def admin_bulk_delete_users():
-    db = get_db()
-    if "delete_netids_file" in request.files:
-        f = request.files["delete_netids_file"]
-        if f:
-            try:
-                content = f.read().decode("utf-8")
-            except Exception as e:
-                flash("Error reading file: " + str(e), "danger")
-                return redirect(url_for("admin"))
-            netid_candidates = re.split(r"[\n,]+", content)
-            valid_netids = []
-            invalid_netids = []
-            for netid in netid_candidates:
-                netid = netid.strip().lower()
-                if netid:
-                    if re.match(r"^[a-z]{2}\d{4}$", netid):
-                        valid_netids.append(netid)
-                    else:
-                        invalid_netids.append(netid)
-            removed = []
-            not_found = []
-            for netid in valid_netids:
-                cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
-                if cur.fetchone():
-                    db.execute("DELETE FROM users WHERE netid = ?", (netid,))
-                    removed.append(netid)
-                else:
-                    not_found.append(netid)
-            db.commit()
-            flash(
-                f"Bulk deletion complete: {len(removed)} netIDs removed, {len(not_found)} netIDs not found, and {len(invalid_netids)} invalid netIDs.",
-                "success",
-            )
-        else:
-            flash("No file selected.", "danger")
-    else:
-        flash("No file uploaded.", "danger")
     return redirect(url_for("admin"))
 
 
@@ -996,9 +963,6 @@ def admin_add_user():
     added = []
     skipped = []
     for netid in netids:
-        if not re.match(r"^[a-z]{2}\d{4}$", netid):
-            skipped.append(netid)
-            continue
         try:
             db.execute("INSERT INTO users (netid) VALUES (?)", (netid,))
             added.append(netid)
@@ -1023,6 +987,7 @@ def admin_delete_user():
     for netid in netids:
         cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
         if cur.fetchone():
+            db.execute("DELETE FROM reservations WHERE netid = ?", (netid,))
             db.execute("DELETE FROM users WHERE netid = ?", (netid,))
             deleted.append(netid)
         else:
@@ -1034,6 +999,49 @@ def admin_delete_user():
     return redirect(url_for("admin"))
 
 
+@app.route("/admin/bulk_delete_users", methods=["POST"])
+@admin_required
+def admin_bulk_delete_users():
+    db = get_db()
+    if "delete_netids_file" in request.files:
+        f = request.files["delete_netids_file"]
+        if f:
+            try:
+                content = f.read().decode("utf-8")
+            except Exception as e:
+                flash("Error reading file: " + str(e), "danger")
+                return redirect(url_for("admin"))
+            netid_candidates = re.split(r"[\n,]+", content)
+            valid_netids = []
+            for netid in netid_candidates:
+                netid = netid.strip().lower()
+                if netid:
+                    valid_netids.append(netid)
+            removed = []
+            not_found = []
+            for netid in valid_netids:
+                cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
+                if cur.fetchone():
+                    db.execute("DELETE FROM reservations WHERE netid = ?", (netid,))
+                    db.execute("DELETE FROM users WHERE netid = ?", (netid,))
+                    removed.append(netid)
+                else:
+                    not_found.append(netid)
+            db.commit()
+            flash(
+                f"Bulk deletion complete: {len(removed)} netIDs removed, {len(not_found)} netIDs not found.",
+                "success",
+            )
+        else:
+            flash("No file selected.", "danger")
+    else:
+        flash("No file uploaded.", "danger")
+    return redirect(url_for("admin"))
+
+
+# ---------------------------
+# NEW: Route for adding a reservation manually (for pub nights) by an admin.
+# ---------------------------
 @app.route("/admin/add_reservation", methods=["POST"])
 @admin_required
 def admin_add_reservation():
@@ -1049,16 +1057,6 @@ def admin_add_reservation():
     if not meal_slot or not is_pub_slot(meal_slot):
         flash("Reservations can only be added to pub night slots.", "danger")
         return redirect(url_for("admin"))
-    invalid_netids = []
-    valid_netids = []
-    for netid in netids:
-        if re.match(r"^[a-z]{2}\d{4}$", netid):
-            valid_netids.append(netid)
-        else:
-            invalid_netids.append(netid)
-    if invalid_netids:
-        flash("Invalid netIDs: " + ", ".join(invalid_netids), "danger")
-        return redirect(url_for("admin"))
     timestamp = datetime.now().isoformat()
     added = []
     skipped = []
@@ -1068,14 +1066,14 @@ def admin_add_reservation():
     )
     count = cur.fetchone()["count"]
     capacity = meal_slot["capacity"]
-    for netid in valid_netids:
+    for netid in netids:
         if count >= capacity:
             flash("Meal slot is full.", "danger")
             break
         try:
             db.execute(
-                "INSERT INTO reservations (netid, meal_slot_id, timestamp) VALUES (?, ?, ?)",
-                (netid, meal_slot_id, timestamp),
+                "INSERT INTO reservations (netid, meal_slot_id, timestamp, added_by) VALUES (?, ?, ?, ?)",
+                (netid, meal_slot_id, timestamp, session["admin_username"]),
             )
             added.append(netid)
             count += 1
