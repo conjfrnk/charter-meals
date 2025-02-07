@@ -80,8 +80,8 @@
   </form>
 {% else %}
   <!-- When signups are closed -->
-  <h3 class="closed-banner"><span class="highlight">Meal Signups are Currently Closed</span></h3>
-  <div id="signup-info" class="closed-banner-info">
+  <h3 class="banner"><span class="highlight">Meal Signups are Currently Closed</span></h3>
+  <div id="signup-info" class="banner-info">
     {% if meal_period_start and meal_period_end and next_signup_open and next_signup_close %}
       <p>
          Meal signups for {{ meal_period_start.strftime("%A, %B %d, %Y") }} – {{ meal_period_end.strftime("%A, %B %d, %Y") }}

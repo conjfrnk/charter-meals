@@ -285,12 +285,12 @@ button:hover, input[type="submit"]:hover, a.button:hover {
 }
 
 /* Closed Banner Styles */
-.closed-banner {
+.banner {
   background-color: #561C1D;
   color: #C5A144;
   padding: 10px;
 }
-.closed-banner-info {
+.banner-info {
   background-color: #561C1D;
   color: #C5A144;
   border: 1px solid #561C1D;
