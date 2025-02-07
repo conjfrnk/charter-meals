@@ -857,12 +857,25 @@ def reserve():
     return redirect(url_for("index"))
 
 
+# ---------------------------
+# Updated /meal_counts Endpoint for the User Page
+# ---------------------------
 @app.route("/meal_counts")
-@cache.cached(timeout=30)
 def meal_counts():
     db = get_db()
+    # Only return counts for meal_slots for next week (the ones shown on the user page)
+    today = date.today()
+    next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
+    next_sunday = next_monday + timedelta(days=6)
     cur = db.execute(
-        "SELECT meal_slot_id, COUNT(*) as count FROM reservations GROUP BY meal_slot_id"
+        """
+        SELECT r.meal_slot_id, COUNT(*) as count 
+        FROM reservations r 
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id 
+        WHERE ms.date BETWEEN ? AND ?
+        GROUP BY r.meal_slot_id
+        """,
+        (next_monday.isoformat(), next_sunday.isoformat()),
     )
     counts = {str(row["meal_slot_id"]): row["count"] for row in cur.fetchall()}
     return jsonify(counts)
