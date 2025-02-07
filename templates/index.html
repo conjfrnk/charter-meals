@@ -51,14 +51,10 @@
           {% set full = (slot_counts[slot.id|string] >= slot.capacity) %}
           <li>
             <label for="slot-{{ slot.id }}">
-              {# 
-                 If the slot is full OR (it is a pub night slot and the user already has a pub night reservation
-                 or current pub night registration) AND this slot is not already reserved by the user,
-                 then disable it. Otherwise, render it normally (and check it if the user has reserved it).
-              #}
-              {% if full or (is_pub and (user_has_pub_selected or user_has_pub_current) and (slot.id|string not in user_reservations)) %}
+              {% if full %}
                 <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}" disabled class="perma-disabled">
               {% else %}
+                {# Render all non-full meal slots as enabled – pub night logic is handled client‑side #}
                 <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}"
                        data-pub="{{ 1 if is_pub else 0 }}"
                        data-capacity="{{ slot.capacity }}"
