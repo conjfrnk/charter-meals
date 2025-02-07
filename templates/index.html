@@ -17,14 +17,6 @@
   </ul>
 </div>
 
-<!-- Display banner if the user has been manually added to a pub night -->
-{% if manual_pub_info %}
-  <div class="banner">
-    You have been added to pub night on {{ manual_pub_info.date }} by {{ manual_pub_info.added_by }}.
-    You may only select one more meal for this week.
-  </div>
-{% endif %}
-
 <!-- Display current week's signups -->
 <h3>Your Meal Signups for This Week</h3>
 {% if current_meals %}
@@ -40,6 +32,13 @@
 {% if signup_open %}
   <!-- When signups are open -->
   <h3>Meal Options for Next Week</h3>
+  <!-- Display banner if the user has been manually added to a pub night -->
+  {% if manual_pub_info %}
+    <div class="banner">
+      You have been added to pub night on {{ manual_pub_info.date|dayname }} {{ manual_pub_info.date }} by {{ manual_pub_info.added_by }}.
+      You may only select one more meal for this week.
+    </div>
+  {% endif %}
   <!-- Set data-max-meals: if manual pub exists then 1, else 2 -->
   <form id="mealForm" method="POST" action="{{ url_for('reserve') }}" role="form" data-max-meals="{{ 1 if manual_pub_info else 2 }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -88,8 +87,14 @@
          will open on <span class="highlight">{{ next_signup_open.strftime("%A, %B %d, %Y at %I:%M %p") }}</span> US Eastern.
          Signups will close on <span class="highlight">{{ next_signup_close.strftime("%A, %B %d, %Y at %I:%M %p") }}</span> US Eastern.
       </p>
+      <br>
+      <br>
+      <br>
     {% else %}
       <p>Meal signups opening information is not available.</p>
+      <br>
+      <br>
+      <br>
     {% endif %}
   </div>
 {% endif %}
