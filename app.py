@@ -776,16 +776,30 @@ def reserve():
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
 
-    # If the user has been manually added to a pub night, allow only one meal.
+    # Get all manual pub reservations (admin-added pub night) for this week.
     cur = db.execute(
-        "SELECT 1 FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id WHERE r.netid = ? AND ms.meal_type = 'dinner' AND ms.date BETWEEN ? AND ? AND r.added_by IS NOT NULL",
+        "SELECT meal_slot_id FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id "
+        "WHERE r.netid = ? AND ms.meal_type = 'dinner' AND ms.date BETWEEN ? AND ? AND r.added_by IS NOT NULL",
         (user_netid, next_monday.isoformat(), next_sunday.isoformat()),
     )
-    manual_pub_exists = cur.fetchone() is not None
-    max_allowed = 1 if manual_pub_exists else 2
+    manual_pub_slots = {str(row["meal_slot_id"]) for row in cur.fetchall()}
+    manual_pub_exists = len(manual_pub_slots) > 0
 
-    if len(selected_slots) > max_allowed:
-        flash(f"You cannot select more than {max_allowed} meal(s) this week.", "danger")
+    # Always allow a total of 2 reservations.
+    total_allowed = 2
+
+    # Calculate how many additional (non-admin-added) slots are being selected.
+    additional_selected = len(selected_slots - manual_pub_slots)
+    if manual_pub_exists and additional_selected > 1:
+        flash(
+            "You may only select one additional meal in addition to your pub night reservation.",
+            "danger",
+        )
+        return redirect(url_for("index"))
+    if not manual_pub_exists and len(selected_slots) > total_allowed:
+        flash(
+            f"You cannot select more than {total_allowed} meal(s) this week.", "danger"
+        )
         return redirect(url_for("index"))
 
     pub_count = 0
@@ -800,15 +814,23 @@ def reserve():
 
     cur = db.execute(
         """
-        SELECT meal_slot_id FROM reservations r
+        SELECT meal_slot_id, added_by FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
         WHERE r.netid = ? AND ms.date BETWEEN ? AND ?
         """,
         (user_netid, next_monday.isoformat(), next_sunday.isoformat()),
     )
-    current_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
-    to_delete = current_reservations - selected_slots
-    to_add = selected_slots - current_reservations
+    current_reservations = {}
+    for row in cur.fetchall():
+        current_reservations[str(row["meal_slot_id"])] = row["added_by"]
+
+    # Do not allow deletion of admin-added pub reservations.
+    to_delete = {
+        slot
+        for slot in current_reservations
+        if slot not in selected_slots and slot not in manual_pub_slots
+    }
+    to_add = selected_slots - set(current_reservations.keys())
 
     for slot_id in to_delete:
         try:
@@ -869,9 +891,9 @@ def meal_counts():
     next_sunday = next_monday + timedelta(days=6)
     cur = db.execute(
         """
-        SELECT r.meal_slot_id, COUNT(*) as count 
-        FROM reservations r 
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id 
+        SELECT r.meal_slot_id, COUNT(*) as count
+        FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
         WHERE ms.date BETWEEN ? AND ?
         GROUP BY r.meal_slot_id
         """,

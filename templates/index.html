@@ -39,8 +39,8 @@
       You may only select one more meal for this week.
     </div>
   {% endif %}
-  <!-- Set data-max-meals: if manual pub exists then 1, else 2 -->
-  <form id="mealForm" method="POST" action="{{ url_for('reserve') }}" role="form" data-max-meals="{{ 1 if manual_pub_info else 2 }}">
+  <!-- Set data-max-meals to 2 always -->
+  <form id="mealForm" method="POST" action="{{ url_for('reserve') }}" role="form" data-max-meals="2">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" id="client_timestamp" name="client_timestamp" value="">
     {% for day, slots in slots_by_date|dictsort %}
@@ -54,11 +54,11 @@
               {% if full %}
                 <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}" disabled class="perma-disabled">
               {% else %}
-                {# Render all non-full meal slots as enabled – pub night logic is handled client‑side #}
                 <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}"
                        data-pub="{{ 1 if is_pub else 0 }}"
                        data-capacity="{{ slot.capacity }}"
-                       {% if slot.id|string in user_reservations %} checked {% endif %}>
+                       {% if slot.id|string in user_reservations %} checked {% endif %}
+                       {% if manual_pub_info and slot.meal_type|lower == 'dinner' and slot.date == manual_pub_info.date %} disabled {% endif %}>
               {% endif %}
               {{ slot.meal_type|capitalize }}{% if is_pub %} (pub night){% endif %}
             </label>
