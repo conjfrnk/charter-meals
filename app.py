@@ -227,12 +227,12 @@ def dayname_filter(date_str):
 def meal_time_filter(meal_type, date_str):
     """Return the meal time range for a given meal type and date.
     For Monday–Friday:
-      - Breakfast: 8–10
-      - Lunch: 11:30–1:30
-      - Dinner: 5:30–7:30
+      - Breakfast: 8-10
+      - Lunch: 11:30-1:30
+      - Dinner: 5:30-7:30
     For Weekend:
-      - Brunch: 11–1:30
-      - Dinner: 5:30–7
+      - Brunch: 11-1:30
+      - Dinner: 5:30-7
     """
     d = datetime.strptime(date_str, "%Y-%m-%d").date()
     weekday = d.weekday()  # Monday=0 ... Sunday=6
@@ -250,6 +250,13 @@ def meal_time_filter(meal_type, date_str):
         elif meal_type_lower == "dinner":
             return "5:30-7"
     return ""
+
+
+@app.template_filter("display_date")
+def display_date_filter(date_str):
+    """Return the date in the format: 'DayName, Mon DD' (no year)."""
+    d = datetime.strptime(date_str, "%Y-%m-%d").date()
+    return d.strftime("%A, %b %d")
 
 
 # ---------------------------
@@ -498,8 +505,6 @@ def admin():
     # --- NEW: Sort each day's slots by meal order ---
     for weekday, slots in weekly_slots.items():
         if slots:
-            # Determine ordering mapping: weekdays (Monday-Friday) use breakfast, lunch, dinner;
-            # weekends use brunch, dinner.
             d = datetime.strptime(slots[0]["date"], "%Y-%m-%d").date()
             if d.weekday() < 5:
                 order = {"breakfast": 1, "lunch": 2, "dinner": 3}
@@ -791,7 +796,7 @@ def index():
         user_has_pub_selected=user_has_pub_selected,
         user_has_pub_current=user_has_pub_current,
         manual_pub_info=manual_pub_info,
-        meal_slots_dict=meal_slots_dict,  # Provided for use in the template.
+        meal_slots_dict=meal_slots_dict,
     )
 
 
