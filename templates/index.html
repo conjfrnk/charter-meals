@@ -65,6 +65,7 @@
             - <span id="count-{{ slot.id }}" data-capacity="{{ slot.capacity }}">
                 {{ slot_counts[slot.id|string] if slot_counts[slot.id|string] is defined else 0 }}/{{ slot.capacity }} reservations
               </span>
+            <span class="meal-time"> ({{ slot.meal_type|meal_time(slot.date) }})</span>
           </li>
         {% endfor %}
       </ul>
@@ -85,7 +86,7 @@
     <ul>
       {% for slot_id in user_reservations %}
         {% set slot = meal_slots_dict[slot_id] %}
-        <li>{{ slot.date }} - {{ slot.meal_type|capitalize }}{% if slot.meal_type|lower == "dinner" and (slot.date|weekday in [1,3]) %} (pub night){% endif %}</li>
+        <li>{{ slot.date }} - {{ slot.meal_type|capitalize }}{% if slot.meal_type|lower == "dinner" and (slot.date|weekday in [1,3]) %} (pub night){% endif %} - {{ slot.meal_type|meal_time(slot.date) }}</li>
       {% endfor %}
     </ul>
   {% endif %}

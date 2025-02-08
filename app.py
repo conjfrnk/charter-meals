@@ -223,6 +223,35 @@ def dayname_filter(date_str):
     return d.strftime("%A")
 
 
+@app.template_filter("meal_time")
+def meal_time_filter(meal_type, date_str):
+    """Return the meal time range for a given meal type and date.
+    For Monday–Friday:
+      - Breakfast: 8–10
+      - Lunch: 11:30–1:30
+      - Dinner: 5:30–7:30
+    For Weekend:
+      - Brunch: 11–1:30
+      - Dinner: 5:30–7
+    """
+    d = datetime.strptime(date_str, "%Y-%m-%d").date()
+    weekday = d.weekday()  # Monday=0 ... Sunday=6
+    meal_type_lower = meal_type.lower()
+    if weekday < 5:  # Weekday
+        if meal_type_lower == "breakfast":
+            return "8-10"
+        elif meal_type_lower == "lunch":
+            return "11:30-1:30"
+        elif meal_type_lower == "dinner":
+            return "5:30-7:30"
+    else:  # Weekend
+        if meal_type_lower == "brunch":
+            return "11-1:30"
+        elif meal_type_lower == "dinner":
+            return "5:30-7"
+    return ""
+
+
 # ---------------------------
 # Helper Functions for Signup Time
 # ---------------------------
@@ -762,7 +791,7 @@ def index():
         user_has_pub_selected=user_has_pub_selected,
         user_has_pub_current=user_has_pub_current,
         manual_pub_info=manual_pub_info,
-        meal_slots_dict=meal_slots_dict,  # Added so the template can display user's next-week signups when signups are closed.
+        meal_slots_dict=meal_slots_dict,  # Provided for use in the template.
     )
 
 
