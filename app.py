@@ -306,6 +306,18 @@ def login_required(view):
 
 
 # ---------------------------
+# Enforce Admin Login on All Admin Routes
+# ---------------------------
+@app.before_request
+def require_admin_for_admin_routes():
+    # If the request path starts with /admin and the endpoint is not "admin_login",
+    # ensure an admin is logged in.
+    if request.path.startswith("/admin") and request.endpoint != "admin_login":
+        if "admin_username" not in session:
+            return redirect(url_for("admin_login"))
+
+
+# ---------------------------
 # Admin Authentication Routes
 # ---------------------------
 @app.route("/admin/login", methods=["GET", "POST"])
@@ -327,6 +339,7 @@ def admin_login():
 
 
 @app.route("/admin/logout")
+@admin_required
 def admin_logout():
     session.pop("admin_username", None)
     flash("Admin logged out.", "info")
@@ -630,7 +643,6 @@ def index():
         (session["netid"], next_monday.isoformat(), next_sunday.isoformat()),
     )
     manual_pub_info = cur.fetchone()
-    # --- NEW: If manual_pub_info exists, add dayname for banner ---
     if manual_pub_info:
         d = datetime.strptime(manual_pub_info["date"], "%Y-%m-%d").date()
         manual_pub_info = dict(manual_pub_info)
@@ -750,6 +762,7 @@ def index():
         user_has_pub_selected=user_has_pub_selected,
         user_has_pub_current=user_has_pub_current,
         manual_pub_info=manual_pub_info,
+        meal_slots_dict=meal_slots_dict,  # Added so the template can display user's next-week signups when signups are closed.
     )
 
 
@@ -885,7 +898,6 @@ def reserve():
 @app.route("/meal_counts")
 def meal_counts():
     db = get_db()
-    # Only return counts for meal_slots for next week (the ones shown on the user page)
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
