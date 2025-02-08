@@ -671,9 +671,11 @@ def index():
         if slot_id in meal_slots_dict
     )
 
-    # Check if the user has been manually added to a pub night
+    # Check if the user has been manually added to a pub night.
+    # (These reservations are admin‐added and will be rendered as checked and disabled.)
     cur = db.execute(
-        "SELECT ms.date, r.added_by FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id WHERE r.netid = ? AND ms.meal_type = 'dinner' AND ms.date BETWEEN ? AND ? AND r.added_by IS NOT NULL",
+        "SELECT ms.date, r.added_by FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id "
+        "WHERE r.netid = ? AND ms.meal_type = 'dinner' AND ms.date BETWEEN ? AND ? AND r.added_by IS NOT NULL",
         (session["netid"], next_monday.isoformat(), next_sunday.isoformat()),
     )
     manual_pub_info = cur.fetchone()
@@ -686,7 +688,8 @@ def index():
     current_week_start = today - timedelta(days=today.weekday())
     current_week_end = current_week_start + timedelta(days=6)
     cur = db.execute(
-        "SELECT ms.* FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id WHERE r.netid = ? AND ms.date BETWEEN ? AND ?",
+        "SELECT ms.* FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id "
+        "WHERE r.netid = ? AND ms.date BETWEEN ? AND ?",
         (
             session["netid"],
             current_week_start.isoformat(),
