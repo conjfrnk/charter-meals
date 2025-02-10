@@ -22,7 +22,13 @@
 {% if current_meals %}
   <ul>
     {% for meal in current_meals %}
-      <li>{{ meal.date|display_date }} - {{ meal.meal_type|capitalize }}{% if meal.meal_type|lower == "dinner" and (meal.date|weekday in [1,3]) %} (pub night){% endif %}</li>
+      <li>
+        {{ meal.date|display_date }} - {{ meal.meal_type|capitalize }}
+        ({{ meal.meal_type|meal_time(meal.date) }})
+        {% if meal.meal_type|lower == "dinner" and (meal.date|weekday in [1,3]) %}
+          (pub night)
+        {% endif %}
+      </li>
     {% endfor %}
   </ul>
 {% else %}
