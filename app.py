@@ -1160,23 +1160,14 @@ def admin_add_reservation():
     timestamp = datetime.now().isoformat()
     added = []
     skipped = []
-    cur = db.execute(
-        "SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?",
-        (meal_slot_id,),
-    )
-    count = cur.fetchone()["count"]
-    capacity = meal_slot["capacity"]
+    # ADMIN OVERRIDE: Do not check for capacity here. This allows manual overfilling.
     for netid in netids:
-        if count >= capacity:
-            flash("Meal slot is full.", "danger")
-            break
         try:
             db.execute(
                 "INSERT INTO reservations (netid, meal_slot_id, timestamp, added_by) VALUES (?, ?, ?, ?)",
                 (netid, meal_slot_id, timestamp, session["admin_username"]),
             )
             added.append(netid)
-            count += 1
         except sqlite3.IntegrityError:
             skipped.append(netid)
     db.commit()

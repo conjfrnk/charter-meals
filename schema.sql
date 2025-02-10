@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     netid TEXT NOT NULL,
     meal_slot_id INTEGER NOT NULL,
     timestamp TEXT NOT NULL,
-    added_by TEXT,  -- New column: if not NULL, indicates this reservation was manually added by an admin
+    added_by TEXT,  -- If not NULL, indicates this reservation was manually added by an admin.
     UNIQUE(netid, meal_slot_id),
     FOREIGN KEY(netid) REFERENCES users(netid) ON DELETE CASCADE,
     FOREIGN KEY(meal_slot_id) REFERENCES meal_slots(id) ON DELETE CASCADE
@@ -38,9 +38,11 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT
 );
 
--- Trigger to enforce meal slot capacity.
+-- Trigger to enforce meal slot capacity only for reservations added by users.
+-- (Admin‑added reservations have a non‑NULL added_by and bypass this check.)
 CREATE TRIGGER IF NOT EXISTS limit_reservations
 BEFORE INSERT ON reservations
+WHEN NEW.added_by IS NULL
 BEGIN
   SELECT
     CASE
