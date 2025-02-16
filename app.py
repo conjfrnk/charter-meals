@@ -1197,7 +1197,7 @@ def admin_bulk_delete_users():
 
 
 # ---------------------------
-# NEW: Route for adding a reservation manually (for pub nights) by an admin.
+# NEW: Route for adding a reservation manually (for any meal slot) by an admin.
 # ---------------------------
 @app.route("/admin/add_reservation", methods=["POST"])
 @admin_required
@@ -1211,8 +1211,8 @@ def admin_add_reservation():
         return redirect(url_for("admin"))
     cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (meal_slot_id,))
     meal_slot = cur.fetchone()
-    if not meal_slot or not is_pub_slot(meal_slot):
-        flash("Reservations can only be added to pub night slots.", "danger")
+    if not meal_slot:
+        flash("Meal slot not found.", "danger")
         return redirect(url_for("admin"))
     timestamp = datetime.now().isoformat()
     added = []

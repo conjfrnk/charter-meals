@@ -50,15 +50,14 @@
                   {% set regs = reservations_by_slot.get(key, {}).get('reservations', []) %}
                   <strong>{{ slot.meal_type|capitalize }} on {{ slot.date }}</strong>
                   <p>Capacity: {{ slot.capacity }} | Signups: {{ regs|length }}</p>
-                  {% if is_pub_slot(slot) %}
-                    <form method="POST" action="{{ url_for('admin_add_reservation') }}">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <input type="hidden" name="meal_slot_id" value="{{ slot.id }}">
-                      <label for="reservation_netid_{{ slot.id }}">Add NetID(s) (comma-separated):</label>
-                      <input type="text" name="reservation_netid" id="reservation_netid_{{ slot.id }}">
-                      <button type="submit">Add</button>
-                    </form>
-                  {% endif %}
+                  <!-- Manual Add Reservation Form (now shown for all slots) -->
+                  <form method="POST" action="{{ url_for('admin_add_reservation') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="meal_slot_id" value="{{ slot.id }}">
+                    <label for="reservation_netid_{{ slot.id }}">Add NetID(s) (comma-separated):</label>
+                    <input type="text" name="reservation_netid" id="reservation_netid_{{ slot.id }}">
+                    <button type="submit">Add</button>
+                  </form>
                   {% if regs|length > 0 %}
                     <p>Registered Users:</p>
                     <ul>
