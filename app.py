@@ -135,7 +135,7 @@ def init_db_command():
     )
 
 
-# --- Dynamic Migration Command (unchanged) ---
+# --- Dynamic Migration Command (with inline comment stripping) ---
 def parse_schema():
     schema = {}
     with open("schema.sql", "r") as f:
@@ -148,8 +148,9 @@ def parse_schema():
     matches = pattern.findall(content)
     for table, cols in matches:
         col_defs = []
+        # Split by comma, removing any inline comments (anything following '--')
         for line in cols.split(","):
-            line = line.strip()
+            line = line.split("--")[0].strip()
             if not line:
                 continue
             if (
@@ -457,13 +458,15 @@ def admin_delete_admin(username):
 @admin_required
 def admin():
     db = get_db()
-    cur = db.execute("SELECT netid FROM users ORDER BY netid")
+    cur = db.execute("SELECT netid, name FROM users ORDER BY netid")
     users = cur.fetchall()
+    # Updated reservations query now joins with users to get the name.
     cur = db.execute(
         """
-        SELECT r.id as reservation_id, r.netid, ms.id as meal_slot_id, ms.date, ms.meal_type, r.timestamp, r.added_by
+        SELECT r.id as reservation_id, r.netid, u.name, ms.id as meal_slot_id, ms.date, ms.meal_type, r.timestamp, r.added_by
         FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        LEFT JOIN users u ON r.netid = u.netid
         ORDER BY ms.date, ms.meal_type
         """
     )
@@ -672,7 +675,6 @@ def index():
     )
 
     # Check if the user has been manually added to a pub night.
-    # (These reservations are admin‐added and will be rendered as checked and disabled.)
     cur = db.execute(
         "SELECT ms.date, r.added_by FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id "
         "WHERE r.netid = ? AND ms.meal_type = 'dinner' AND ms.date BETWEEN ? AND ? AND r.added_by IS NOT NULL",
@@ -759,16 +761,36 @@ def index():
                 target_time_close = datetime.strptime(
                     settings.get("reservation_close_time"), "%H:%M"
                 ).time()
-                next_open = next_occurrence(
-                    target_weekday_open, target_time_open, now_eastern
+
+                # Compute most recent open datetime
+                days_since_open = (now_eastern.weekday() - target_weekday_open) % 7
+                open_dt = (now_eastern - timedelta(days=days_since_open)).replace(
+                    hour=target_time_open.hour,
+                    minute=target_time_open.minute,
+                    second=0,
+                    microsecond=0,
                 )
-                next_close = next_occurrence(
-                    target_weekday_close, target_time_close, next_open
+
+                # Compute next close datetime
+                days_until_close = (target_weekday_close - now_eastern.weekday()) % 7
+                if days_until_close == 0 and now_eastern.time() >= target_time_close:
+                    days_until_close = 7
+                close_dt = (now_eastern + timedelta(days=days_until_close)).replace(
+                    hour=target_time_close.hour,
+                    minute=target_time_close.minute,
+                    second=0,
+                    microsecond=0,
                 )
-                if next_open <= now_eastern < next_close:
+
+                if open_dt <= now_eastern < close_dt:
                     signup_open = True
-                next_signup_open = next_open
-                next_signup_close = next_close
+
+                if now_eastern < open_dt:
+                    next_signup_open = open_dt
+                    next_signup_close = close_dt
+                else:
+                    next_signup_open = open_dt + timedelta(days=7)
+                    next_signup_close = close_dt + timedelta(days=7)
         except Exception as e:
             print("Error parsing auto settings:", e)
     elif reservation_status == "open":
@@ -960,9 +982,10 @@ def admin_download_meal_signups_week(week_start):
     week_end_date = week_start_date + timedelta(days=6)
     cur = db.execute(
         """
-        SELECT ms.date, ms.meal_type, r.netid, r.timestamp, r.added_by
+        SELECT ms.date, ms.meal_type, r.netid, u.name, r.timestamp, r.added_by
         FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        LEFT JOIN users u ON r.netid = u.netid
         WHERE ms.date BETWEEN ? AND ?
         ORDER BY r.timestamp ASC
         """,
@@ -971,9 +994,10 @@ def admin_download_meal_signups_week(week_start):
     rows = cur.fetchall()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["date", "meal", "netid", "added_by"])
+    writer.writerow(["date", "meal", "user", "added_by"])
     for row in rows:
-        writer.writerow([row["date"], row["meal_type"], row["netid"], row["added_by"]])
+        user_field = f"{row['name'] or 'No Name'} ({row['netid']})"
+        writer.writerow([row["date"], row["meal_type"], user_field, row["added_by"]])
     csv_content = output.getvalue()
     output.close()
     return Response(
@@ -993,18 +1017,20 @@ def admin_download_all_meal_signups():
     db = get_db()
     cur = db.execute(
         """
-        SELECT ms.date, ms.meal_type, r.netid, r.timestamp, r.added_by
+        SELECT ms.date, ms.meal_type, r.netid, u.name, r.timestamp, r.added_by
         FROM reservations r
         JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        LEFT JOIN users u ON r.netid = u.netid
         ORDER BY r.timestamp ASC
         """
     )
     rows = cur.fetchall()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["date", "meal", "netid", "added_by"])
+    writer.writerow(["date", "meal", "user", "added_by"])
     for row in rows:
-        writer.writerow([row["date"], row["meal_type"], row["netid"], row["added_by"]])
+        user_field = f"{row['name'] or 'No Name'} ({row['netid']})"
+        writer.writerow([row["date"], row["meal_type"], user_field, row["added_by"]])
     csv_content = output.getvalue()
     output.close()
     return Response(
@@ -1029,23 +1055,37 @@ def admin_upload_emails():
             except Exception as e:
                 flash("Error reading file.", "danger")
                 return redirect(url_for("admin"))
-            lines = content.replace(",", "\n").splitlines()
-            valid_netids = []
-            for line in lines:
-                netid = line.strip().lower()
-                if netid:
-                    valid_netids.append(netid)
+            f_io = io.StringIO(content)
+            reader = csv.reader(f_io)
             added = []
+            updated = []
             skipped = []
-            for netid in valid_netids:
+            for row in reader:
+                if len(row) < 2:
+                    continue
+                netid = row[0].strip().lower()
+                name = row[1].strip()
+                if not netid:
+                    continue
+                cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
+                existing = cur.fetchone()
                 try:
-                    db.execute("INSERT INTO users (netid) VALUES (?)", (netid,))
-                    added.append(netid)
+                    if existing:
+                        db.execute(
+                            "UPDATE users SET name = ? WHERE netid = ?", (name, netid)
+                        )
+                        updated.append(netid)
+                    else:
+                        db.execute(
+                            "INSERT INTO users (netid, name) VALUES (?, ?)",
+                            (netid, name),
+                        )
+                        added.append(netid)
                 except sqlite3.IntegrityError:
                     skipped.append(netid)
             db.commit()
             flash(
-                f"Added {len(added)} netids. Skipped {len(skipped)} duplicates.",
+                f"Added: {len(added)}. Updated: {len(updated)}. Skipped: {len(skipped)}.",
                 "success",
             )
     return redirect(url_for("admin"))

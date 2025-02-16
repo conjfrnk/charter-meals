@@ -5,7 +5,8 @@ DROP TABLE IF EXISTS admins;
 DROP TABLE IF EXISTS settings;
 
 CREATE TABLE IF NOT EXISTS users (
-    netid TEXT PRIMARY KEY
+    netid TEXT PRIMARY KEY,
+    name TEXT
 );
 
 CREATE TABLE IF NOT EXISTS meal_slots (
