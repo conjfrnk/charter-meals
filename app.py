@@ -148,7 +148,7 @@ def parse_schema():
     matches = pattern.findall(content)
     for table, cols in matches:
         col_defs = []
-        # Split by comma, removing any inline comments (anything following '--')
+        # Split by comma and remove inline comments (anything after '--')
         for line in cols.split(","):
             line = line.split("--")[0].strip()
             if not line:
@@ -449,6 +449,89 @@ def admin_delete_admin(username):
     db.commit()
     flash(f"Admin account '{username}' deleted.", "success")
     return redirect(url_for("admin"))
+
+
+# ---------------------------
+# Updated Export Functionality
+# ---------------------------
+def export_sort_key(row):
+    # Compute weekday (Monday=0, Sunday=6)
+    dt = datetime.strptime(row["date"], "%Y-%m-%d").date()
+    weekday = dt.weekday()
+    # Define meal order mapping; treat 'brunch' as breakfast (order 1)
+    meal = row["meal_type"].lower()
+    meal_order = {"breakfast": 1, "lunch": 2, "dinner": 3, "brunch": 1}.get(meal, 99)
+    # Extract first name from the user's name
+    first_name = (row["name"] or "").split()[0].lower() if row["name"] else ""
+    return (weekday, meal_order, first_name)
+
+
+@app.route("/admin/download_meal_signups/<week_start>")
+@admin_required
+def admin_download_meal_signups_week(week_start):
+    db = get_db()
+    week_start_date = datetime.strptime(week_start, "%Y-%m-%d").date()
+    week_end_date = week_start_date + timedelta(days=6)
+    cur = db.execute(
+        """
+        SELECT ms.date, ms.meal_type, u.name, r.timestamp, r.added_by
+        FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        LEFT JOIN users u ON r.netid = u.netid
+        WHERE ms.date BETWEEN ? AND ?
+        """,
+        (week_start_date.isoformat(), week_end_date.isoformat()),
+    )
+    rows = cur.fetchall()
+    sorted_rows = sorted(rows, key=export_sort_key)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["date", "meal", "name"])
+    for row in sorted_rows:
+        name = row["name"] or "No Name"
+        writer.writerow([row["date"], row["meal_type"], name])
+    csv_content = output.getvalue()
+    output.close()
+    return Response(
+        csv_content,
+        mimetype="text/csv",
+        headers={
+            "Content-disposition": "attachment; filename=meal_signups_"
+            + week_start
+            + ".csv"
+        },
+    )
+
+
+@app.route("/admin/download_all_meal_signups")
+@admin_required
+def admin_download_all_meal_signups():
+    db = get_db()
+    cur = db.execute(
+        """
+        SELECT ms.date, ms.meal_type, u.name, r.timestamp, r.added_by
+        FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        LEFT JOIN users u ON r.netid = u.netid
+        """
+    )
+    rows = cur.fetchall()
+    sorted_rows = sorted(rows, key=export_sort_key)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["date", "meal", "name"])
+    for row in sorted_rows:
+        name = row["name"] or "No Name"
+        writer.writerow([row["date"], row["meal_type"], name])
+    csv_content = output.getvalue()
+    output.close()
+    return Response(
+        csv_content,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=meal_signups_all.csv"},
+    )
 
 
 # ---------------------------
@@ -972,72 +1055,6 @@ def meal_counts():
     )
     counts = {str(row["meal_slot_id"]): row["count"] for row in cur.fetchall()}
     return jsonify(counts)
-
-
-@app.route("/admin/download_meal_signups/<week_start>")
-@admin_required
-def admin_download_meal_signups_week(week_start):
-    db = get_db()
-    week_start_date = datetime.strptime(week_start, "%Y-%m-%d").date()
-    week_end_date = week_start_date + timedelta(days=6)
-    cur = db.execute(
-        """
-        SELECT ms.date, ms.meal_type, r.netid, u.name, r.timestamp, r.added_by
-        FROM reservations r
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        LEFT JOIN users u ON r.netid = u.netid
-        WHERE ms.date BETWEEN ? AND ?
-        ORDER BY r.timestamp ASC
-        """,
-        (week_start_date.isoformat(), week_end_date.isoformat()),
-    )
-    rows = cur.fetchall()
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["date", "meal", "user", "added_by"])
-    for row in rows:
-        user_field = f"{row['name'] or 'No Name'} ({row['netid']})"
-        writer.writerow([row["date"], row["meal_type"], user_field, row["added_by"]])
-    csv_content = output.getvalue()
-    output.close()
-    return Response(
-        csv_content,
-        mimetype="text/csv",
-        headers={
-            "Content-disposition": "attachment; filename=meal_signups_"
-            + week_start
-            + ".csv"
-        },
-    )
-
-
-@app.route("/admin/download_all_meal_signups")
-@admin_required
-def admin_download_all_meal_signups():
-    db = get_db()
-    cur = db.execute(
-        """
-        SELECT ms.date, ms.meal_type, r.netid, u.name, r.timestamp, r.added_by
-        FROM reservations r
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        LEFT JOIN users u ON r.netid = u.netid
-        ORDER BY r.timestamp ASC
-        """
-    )
-    rows = cur.fetchall()
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["date", "meal", "user", "added_by"])
-    for row in rows:
-        user_field = f"{row['name'] or 'No Name'} ({row['netid']})"
-        writer.writerow([row["date"], row["meal_type"], user_field, row["added_by"]])
-    csv_content = output.getvalue()
-    output.close()
-    return Response(
-        csv_content,
-        mimetype="text/csv",
-        headers={"Content-disposition": "attachment; filename=meal_signups_all.csv"},
-    )
 
 
 # ---------------------------
