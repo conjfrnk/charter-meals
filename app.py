@@ -541,9 +541,45 @@ def admin_download_all_meal_signups():
 @admin_required
 def admin():
     db = get_db()
+
+    # --- New: Fetch users and attach their reservations for current & next week ---
     cur = db.execute("SELECT netid, name FROM users ORDER BY netid")
-    users = cur.fetchall()
-    # Updated reservations query now joins with users to get the name.
+    users_rows = cur.fetchall()
+
+    today = date.today()
+    current_week_start = today - timedelta(days=today.weekday())
+    current_week_end = current_week_start + timedelta(days=6)
+    next_monday = current_week_start + timedelta(days=7)
+    next_sunday = next_monday + timedelta(days=6)
+
+    # Get reservations for current week and next week:
+    week_range_start = current_week_start.isoformat()
+    week_range_end = next_sunday.isoformat()
+
+    cur = db.execute(
+        """
+        SELECT r.netid, ms.date, ms.meal_type
+        FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        WHERE ms.date BETWEEN ? AND ?
+        ORDER BY ms.date, ms.meal_type
+        """,
+        (week_range_start, week_range_end),
+    )
+    all_reservations = cur.fetchall()
+
+    reservations_by_user = {}
+    for res in all_reservations:
+        reservations_by_user.setdefault(res["netid"], []).append(res)
+
+    users = []
+    for row in users_rows:
+        user = dict(row)
+        user["reservations"] = reservations_by_user.get(user["netid"], [])
+        users.append(user)
+    # --- End new user reservations block ---
+
+    # Existing queries for reservations_by_slot for the reservations subtabs:
     cur = db.execute(
         """
         SELECT r.id as reservation_id, r.netid, u.name, ms.id as meal_slot_id, ms.date, ms.meal_type, r.timestamp, r.added_by
@@ -588,7 +624,7 @@ def admin():
     for slot in week_meal_slots:
         d = datetime.strptime(slot["date"], "%Y-%m-%d").date()
         weekly_slots[d.weekday()].append(slot)
-    # --- NEW: Sort each day's slots by meal order ---
+    # --- Sort each day's slots by meal order ---
     for weekday, slots in weekly_slots.items():
         if slots:
             d = datetime.strptime(slots[0]["date"], "%Y-%m-%d").date()
