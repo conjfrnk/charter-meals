@@ -834,7 +834,10 @@ def index():
     )
     current_meals = cur.fetchall()
 
-    # Determine signup status using settings.
+    # -------------------------------
+    # NEW: Determine signup window
+    # -------------------------------
+    # For next-week signups, we want the signup period to open on Saturday and close on Sunday of the current week.
     cur = db.execute(
         "SELECT key, value FROM settings WHERE key IN (?, ?, ?, ?, ?)",
         (
@@ -852,64 +855,32 @@ def index():
     next_signup_close = None
     now_eastern = datetime.now(ZoneInfo("America/New_York"))
     if reservation_status == "auto":
-        weekday_mapping = {
-            "Monday": 0,
-            "Tuesday": 1,
-            "Wednesday": 2,
-            "Thursday": 3,
-            "Friday": 4,
-            "Saturday": 5,
-            "Sunday": 6,
-        }
         try:
-            target_weekday_open = weekday_mapping.get(
-                settings.get("reservation_open_day", ""), None
-            )
-            target_weekday_close = weekday_mapping.get(
-                settings.get("reservation_close_day", ""), None
-            )
-            if (
-                target_weekday_open is not None
-                and target_weekday_close is not None
-                and settings.get("reservation_open_time")
-                and settings.get("reservation_close_time")
-            ):
-                target_time_open = datetime.strptime(
-                    settings.get("reservation_open_time"), "%H:%M"
-                ).time()
-                target_time_close = datetime.strptime(
-                    settings.get("reservation_close_time"), "%H:%M"
-                ).time()
-
-                # Compute most recent open datetime
-                days_since_open = (now_eastern.weekday() - target_weekday_open) % 7
-                open_dt = (now_eastern - timedelta(days=days_since_open)).replace(
-                    hour=target_time_open.hour,
-                    minute=target_time_open.minute,
-                    second=0,
-                    microsecond=0,
-                )
-
-                # Compute next close datetime
-                days_until_close = (target_weekday_close - now_eastern.weekday()) % 7
-                if days_until_close == 0 and now_eastern.time() >= target_time_close:
-                    days_until_close = 7
-                close_dt = (now_eastern + timedelta(days=days_until_close)).replace(
-                    hour=target_time_close.hour,
-                    minute=target_time_close.minute,
-                    second=0,
-                    microsecond=0,
-                )
-
-                if open_dt <= now_eastern < close_dt:
-                    signup_open = True
-
-                if now_eastern < open_dt:
-                    next_signup_open = open_dt
-                    next_signup_close = close_dt
-                else:
-                    next_signup_open = open_dt + timedelta(days=7)
-                    next_signup_close = close_dt + timedelta(days=7)
+            # Override: Always use current week Saturday and Sunday as the signup window.
+            target_time_open = datetime.strptime(settings.get("reservation_open_time"), "%H:%M").time()
+            target_time_close = datetime.strptime(settings.get("reservation_close_time"), "%H:%M").time()
+            
+            # Compute current week's Monday
+            current_monday = now_eastern.date() - timedelta(days=now_eastern.weekday())
+            saturday = current_monday + timedelta(days=5)
+            sunday = current_monday + timedelta(days=6)
+            
+            # Build open and close datetimes with US Eastern timezone
+            open_dt = datetime.combine(saturday, target_time_open, tzinfo=ZoneInfo("America/New_York"))
+            close_dt = datetime.combine(sunday, target_time_close, tzinfo=ZoneInfo("America/New_York"))
+            
+            if now_eastern < open_dt:
+                signup_open = False
+                next_signup_open = open_dt
+                next_signup_close = close_dt
+            elif open_dt <= now_eastern < close_dt:
+                signup_open = True
+                next_signup_open = open_dt + timedelta(weeks=1)
+                next_signup_close = close_dt + timedelta(weeks=1)
+            else:
+                signup_open = False
+                next_signup_open = open_dt + timedelta(weeks=1)
+                next_signup_close = close_dt + timedelta(weeks=1)
         except Exception as e:
             print("Error parsing auto settings:", e)
     elif reservation_status == "open":
