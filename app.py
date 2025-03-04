@@ -91,6 +91,7 @@ Compress(app)
 cache_config = {
     "CACHE_TYPE": "simple",
     "CACHE_DEFAULT_TIMEOUT": 300,
+    "CACHE_THRESHOLD": 500,  # Store up to 500 items in cache
 }
 cache = Cache(app, config=cache_config)
 
@@ -452,7 +453,7 @@ def admin_delete_admin(username):
 
 
 # ---------------------------
-# Updated Export Functionality
+# Export Functionality
 # ---------------------------
 def export_sort_key(row):
     # Compute weekday (Monday=0, Sunday=6)
@@ -736,26 +737,143 @@ def logout():
     return redirect(url_for("login"))
 
 
+@cache.memoize(timeout=60)  # Cache for 1 minute
+def get_meal_slots_data(start_date, end_date):
+    """Get meal slots data for the given date range."""
+    db = get_db()
+    cur = db.execute(
+        "SELECT * FROM meal_slots WHERE date BETWEEN ? AND ? ORDER BY date",
+        (start_date.isoformat(), end_date.isoformat()),
+    )
+    return [dict(row) for row in cur.fetchall()]
+
+
+@cache.memoize(timeout=60)
+def get_slot_counts(start_date, end_date):
+    """Get counts for each meal slot in the given date range."""
+    db = get_db()
+    cur = db.execute(
+        """
+        SELECT meal_slot_id, COUNT(*) as count
+        FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        WHERE ms.date BETWEEN ? AND ?
+        GROUP BY meal_slot_id
+        """,
+        (start_date.isoformat(), end_date.isoformat()),
+    )
+    counts = {}
+    for row in cur.fetchall():
+        counts[str(row["meal_slot_id"])] = row["count"]
+    return counts
+
+
+@cache.memoize(timeout=30)
+def get_user_reservations(netid, start_date, end_date):
+    """Get reservations for a specific user in the given date range."""
+    if not netid:
+        return set()
+    db = get_db()
+    cur = db.execute(
+        """
+        SELECT meal_slot_id FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        WHERE r.netid = ? AND ms.date BETWEEN ? AND ?
+        """,
+        (netid, start_date.isoformat(), end_date.isoformat()),
+    )
+    return {str(row["meal_slot_id"]) for row in cur.fetchall()}
+
+
+@cache.memoize(timeout=60)
+def get_user_current_meals(netid, start_date, end_date):
+    """Get current meals for a specific user."""
+    db = get_db()
+    cur = db.execute(
+        """
+        SELECT ms.date, ms.meal_type FROM reservations r
+        JOIN meal_slots ms ON r.meal_slot_id = ms.id
+        WHERE r.netid = ? AND ms.date BETWEEN ? AND ?
+        ORDER BY ms.date, ms.meal_type
+        """,
+        (netid, start_date.isoformat(), end_date.isoformat()),
+    )
+    return [dict(row) for row in cur.fetchall()]
+
+
+@cache.memoize(timeout=60)
+def check_user_has_pub_current(netid, start_date, end_date):
+    """Check if user has a pub reservation in the current week."""
+    db = get_db()
+    cur = db.execute(
+        "SELECT ms.* FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id "
+        "WHERE r.netid = ? AND ms.date BETWEEN ? AND ?",
+        (netid, start_date.isoformat(), end_date.isoformat()),
+    )
+    rows = cur.fetchall()
+    return any(is_pub_slot(row) for row in rows)
+
+
+@cache.memoize(timeout=60)
+def get_manual_pub_info(netid, start_date, end_date):
+    """Get manual pub info for a user."""
+    db = get_db()
+    cur = db.execute(
+        "SELECT ms.date, r.added_by FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id "
+        "WHERE r.netid = ? AND ms.meal_type = 'dinner' AND ms.date BETWEEN ? AND ? AND r.added_by IS NOT NULL",
+        (netid, start_date.isoformat(), end_date.isoformat()),
+    )
+    pub_info = cur.fetchone()
+    if pub_info:
+        d = datetime.strptime(pub_info["date"], "%Y-%m-%d").date()
+        pub_info = dict(pub_info)
+        pub_info["dayname"] = d.strftime("%A")
+    return pub_info
+
+
+@cache.memoize(timeout=120)
+def get_reservation_settings():
+    """Get reservation settings from the database."""
+    db = get_db()
+    cur = db.execute(
+        "SELECT key, value FROM settings WHERE key IN (?, ?, ?, ?, ?)",
+        (
+            "reservation_status",
+            "reservation_open_day",
+            "reservation_open_time",
+            "reservation_close_day",
+            "reservation_close_time",
+        ),
+    )
+    return {row["key"]: row["value"] for row in cur.fetchall()}
+
+
 @app.route("/")
 @login_required
 def index():
     generate_next_week_meal_slots()
-    db = get_db()
+
+    # Get date ranges
     today = date.today()
-    next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
+    current_week_start = today - timedelta(days=today.weekday())
+    current_week_end = current_week_start + timedelta(days=6)
+    next_monday = current_week_start + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
-    cur = db.execute(
-        "SELECT * FROM meal_slots WHERE date BETWEEN ? AND ? ORDER BY date",
-        (next_monday.isoformat(), next_sunday.isoformat()),
+
+    # User info
+    user_netid = session["netid"]
+
+    # Use cached functions for expensive database operations
+    meal_slots = get_meal_slots_data(next_monday, next_sunday)
+    slot_counts = get_slot_counts(next_monday, next_sunday)
+    user_reservations = get_user_reservations(user_netid, next_monday, next_sunday)
+    current_meals = get_user_current_meals(
+        user_netid, current_week_start, current_week_end
     )
-    meal_slots = cur.fetchall()
-    slot_counts = {}
-    for slot in meal_slots:
-        cur = db.execute(
-            "SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?",
-            (slot["id"],),
-        )
-        slot_counts[str(slot["id"])] = cur.fetchone()["count"]
+    user_has_pub_current = check_user_has_pub_current(
+        user_netid, current_week_start, current_week_end
+    )
+    manual_pub_info = get_manual_pub_info(user_netid, next_monday, next_sunday)
 
     # Group meal slots by date
     slots_by_date = {}
@@ -770,18 +888,7 @@ def index():
             if day_obj.weekday() < 5
             else {"brunch": 1, "dinner": 2}
         )
-        slots.sort(key=lambda s: order.get(s["meal_type"], 99))
-
-    # Get next-week reservations for the current user.
-    cur = db.execute(
-        """
-        SELECT meal_slot_id FROM reservations r
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        WHERE r.netid = ? AND ms.date BETWEEN ? AND ?
-        """,
-        (session["netid"], next_monday.isoformat(), next_sunday.isoformat()),
-    )
-    user_reservations = {str(row["meal_slot_id"]) for row in cur.fetchall()}
+        slots.sort(key=lambda s: order.get(s["meal_type"].lower(), 99))
 
     # Build a dictionary of meal_slots keyed by id (as a string)
     meal_slots_dict = {str(slot["id"]): slot for slot in meal_slots}
@@ -793,66 +900,14 @@ def index():
         if slot_id in meal_slots_dict
     )
 
-    # Check if the user has been manually added to a pub night.
-    cur = db.execute(
-        "SELECT ms.date, r.added_by FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id "
-        "WHERE r.netid = ? AND ms.meal_type = 'dinner' AND ms.date BETWEEN ? AND ? AND r.added_by IS NOT NULL",
-        (session["netid"], next_monday.isoformat(), next_sunday.isoformat()),
-    )
-    manual_pub_info = cur.fetchone()
-    if manual_pub_info:
-        d = datetime.strptime(manual_pub_info["date"], "%Y-%m-%d").date()
-        manual_pub_info = dict(manual_pub_info)
-        manual_pub_info["dayname"] = d.strftime("%A")
-
-    # Determine if the user is registered for a pub night in the current week.
-    current_week_start = today - timedelta(days=today.weekday())
-    current_week_end = current_week_start + timedelta(days=6)
-    cur = db.execute(
-        "SELECT ms.* FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id "
-        "WHERE r.netid = ? AND ms.date BETWEEN ? AND ?",
-        (
-            session["netid"],
-            current_week_start.isoformat(),
-            current_week_end.isoformat(),
-        ),
-    )
-    user_has_pub_current = any(is_pub_slot(row) for row in cur.fetchall())
-
-    cur = db.execute(
-        """
-        SELECT ms.date, ms.meal_type FROM reservations r
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        WHERE r.netid = ? AND ms.date BETWEEN ? AND ?
-        ORDER BY ms.date, ms.meal_type
-        """,
-        (
-            session["netid"],
-            current_week_start.isoformat(),
-            current_week_end.isoformat(),
-        ),
-    )
-    current_meals = cur.fetchall()
-
-    # -------------------------------
-    # NEW: Determine signup window based on admin settings
-    # -------------------------------
-    cur = db.execute(
-        "SELECT key, value FROM settings WHERE key IN (?, ?, ?, ?, ?)",
-        (
-            "reservation_status",
-            "reservation_open_day",
-            "reservation_open_time",
-            "reservation_close_day",
-            "reservation_close_time",
-        ),
-    )
-    settings = {row["key"]: row["value"] for row in cur.fetchall()}
+    # Get reservation settings
+    settings = get_reservation_settings()
     reservation_status = settings.get("reservation_status", "auto")
     signup_open = False
     next_signup_open = None
     next_signup_close = None
     now_eastern = datetime.now(ZoneInfo("America/New_York"))
+
     if reservation_status == "auto":
         try:
             target_time_open = datetime.strptime(
@@ -1048,35 +1103,32 @@ def reserve():
         flash("Database commit failed: " + str(e), "danger")
         return redirect(url_for("index"))
     flash("Reservations updated successfully.", "success")
+
+    # Invalidate caches after reservation changes
+    cache.delete_memoized(get_slot_counts, next_monday, next_sunday)
+    cache.delete_memoized(get_user_reservations, user_netid, next_monday, next_sunday)
+    cache.delete_memoized(
+        get_user_current_meals, user_netid, current_week_start, current_week_end
+    )
+    cache.delete_memoized(
+        check_user_has_pub_current, user_netid, current_week_start, current_week_end
+    )
+    cache.delete_memoized(get_manual_pub_info, user_netid, next_monday, next_sunday)
+
     return redirect(url_for("index"))
 
 
-# ---------------------------
-# Updated /meal_counts Endpoint for the User Page
-# ---------------------------
 @app.route("/meal_counts")
 def meal_counts():
-    db = get_db()
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
-    cur = db.execute(
-        """
-        SELECT r.meal_slot_id, COUNT(*) as count
-        FROM reservations r
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        WHERE ms.date BETWEEN ? AND ?
-        GROUP BY r.meal_slot_id
-        """,
-        (next_monday.isoformat(), next_sunday.isoformat()),
-    )
-    counts = {str(row["meal_slot_id"]): row["count"] for row in cur.fetchall()}
+
+    # Use the cached function
+    counts = get_slot_counts(next_monday, next_sunday)
     return jsonify(counts)
 
 
-# ---------------------------
-# Updated Admin Routes for User Management
-# ---------------------------
 @app.route("/admin/upload_emails", methods=["POST"])
 @admin_required
 def admin_upload_emails():
@@ -1214,7 +1266,7 @@ def admin_bulk_delete_users():
 
 
 # ---------------------------
-# NEW: Route for adding a reservation manually (for any meal slot) by an admin.
+# Route for adding a reservation manually (for any meal slot) by an admin.
 # ---------------------------
 @app.route("/admin/add_reservation", methods=["POST"])
 @admin_required
