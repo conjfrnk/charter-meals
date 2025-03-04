@@ -360,3 +360,8 @@ button:hover, input[type="submit"]:hover, a.button:hover {
 .inline-form {
   display: inline;
 }
+
+.fade-out {
+  opacity: 0;
+  transition: opacity 0.5s;
+}

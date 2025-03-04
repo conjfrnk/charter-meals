@@ -1,141 +1,179 @@
-$(document).ready(function(){
-  // Dismiss elements when a dismiss button is clicked.
-  $(document).on('click', '.dismiss', function() {
-    $(this).parent().fadeOut();
+document.addEventListener('DOMContentLoaded', () => {
+  // Dismiss elements when a dismiss button is clicked
+  document.addEventListener('click', (event) => {
+    if (event.target.classList.contains('dismiss')) {
+      const parent = event.target.parentElement;
+      // Fade out effect with CSS transitions (add to your CSS: .fade-out { opacity: 0; transition: opacity 0.5s; })
+      parent.classList.add('fade-out');
+      setTimeout(() => {
+        parent.style.display = 'none';
+      }, 500);
+    }
   });
 
-  // Update the reservation counts every 5 seconds.
-  function updateCounts(){
-    $.getJSON("/meal_counts", function(data){
-      $.each(data, function(slot_id, count){
-        $("#count-" + slot_id).text(count + "/" + $("#count-" + slot_id).data("capacity") + " reservations");
-      });
-    });
+  // Update the reservation counts every 5 seconds
+  function updateCounts() {
+    fetch('/meal_counts')
+      .then(response => response.json())
+      .then(data => {
+        Object.entries(data).forEach(([slotId, count]) => {
+          const element = document.getElementById(`count-${slotId}`);
+          if (element) {
+            const capacity = element.dataset.capacity;
+            element.textContent = `${count}/${capacity} reservations`;
+          }
+        });
+      })
+      .catch(error => console.error('Error fetching meal counts:', error));
   }
-  updateCounts();
-  setInterval(updateCounts, 5000);
+  
+  // Run initial count update and set interval
+  if (document.getElementById('mealForm')) {
+    updateCounts();
+    setInterval(updateCounts, 5000);
+  }
 
-  // Before reservation form submission, update the hidden timestamp to the current time.
-  $("#mealForm").on("submit", function(){
-    var ts = new Date().toISOString();
-    $("#client_timestamp").val(ts);
-  });
-
-  // Main Admin Tabs – remember last active tab.
-  if ($(".tablink").length > 0) {
-    const tabLinks = $(".tablink");
-    const tabContents = $(".tabcontent");
-    let activeTab = localStorage.getItem("activeAdminTab") || "reservations";
+  // Main Admin Tabs - remember last active tab
+  const tabLinks = document.querySelectorAll('.tablink');
+  if (tabLinks.length > 0) {
+    const tabContents = document.querySelectorAll('.tabcontent');
+    let activeTab = localStorage.getItem('activeAdminTab') || 'reservations';
+    
     function showTab(tabName) {
-      tabLinks.each(function(){
-        $(this).toggleClass("active", $(this).data("tab") === tabName);
+      tabLinks.forEach(link => {
+        link.classList.toggle('active', link.dataset.tab === tabName);
       });
-      tabContents.each(function(){
-        $(this).toggle($(this).attr("id") === tabName);
+      
+      tabContents.forEach(content => {
+        content.style.display = content.id === tabName ? 'block' : 'none';
       });
     }
-    tabLinks.click(function(){
-      let tabName = $(this).data("tab");
-      localStorage.setItem("activeAdminTab", tabName);
-      showTab(tabName);
+    
+    tabLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        const tabName = link.dataset.tab;
+        localStorage.setItem('activeAdminTab', tabName);
+        showTab(tabName);
+      });
     });
+    
     showTab(activeTab);
   }
 
-  // Reservations Subtabs Logic – remember last active subtab.
-  if ($(".subtab-btn").length > 0) {
-    const subtabBtns = $(".subtab-btn");
-    const subtabContents = $(".subtab-content");
-    let activeSubtab = localStorage.getItem("activeReservationSubtab") || "download";
+  // Reservations Subtabs Logic - remember last active subtab
+  const subtabBtns = document.querySelectorAll('.subtab-btn');
+  if (subtabBtns.length > 0) {
+    const subtabContents = document.querySelectorAll('.subtab-content');
+    let activeSubtab = localStorage.getItem('activeReservationSubtab') || 'download';
+    
     function showSubtab(subtabName) {
-      subtabBtns.each(function(){
-        $(this).toggleClass("active", $(this).data("subtab") === subtabName);
+      subtabBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.subtab === subtabName);
       });
-      subtabContents.each(function(){
-        $(this).toggleClass("active", $(this).attr("id") === subtabName);
+      
+      subtabContents.forEach(content => {
+        content.classList.toggle('active', content.id === subtabName);
       });
     }
-    subtabBtns.click(function(){
-      let subtabName = $(this).data("subtab");
-      localStorage.setItem("activeReservationSubtab", subtabName);
-      showSubtab(subtabName);
+    
+    subtabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const subtabName = btn.dataset.subtab;
+        localStorage.setItem('activeReservationSubtab', subtabName);
+        showSubtab(subtabName);
+      });
     });
+    
     showSubtab(activeSubtab);
   }
 
-  // Toggle password visibility.
-  $(".toggle-password").click(function(){
-    let targetId = $(this).data("target");
-    let input = $("#" + targetId);
-    if (input.attr("type") === "password") {
-      input.attr("type", "text");
-      $(this).text("Hide Password");
-    } else {
-      input.attr("type", "password");
-      $(this).text("Show Password");
-    }
-  });
-
-  // Limit meal selection based on the allowed number.
-  // Read the allowed maximum from the form's data attribute (default is 2).
-  const maxMeals = parseInt($("#mealForm").data("max-meals")) || 2;
-  $('input[name="meal_slot"]').on('change', function(){
-    // Count how many meal slots are checked overall.
-    let selectedCount = $('input[name="meal_slot"]:checked').length;
-
-    if(selectedCount >= maxMeals){
-      // Disable (gray out) any unchecked meal slot
-      $('input[name="meal_slot"]').each(function(){
-        if(!$(this).is(':checked') && !$(this).prop('disabled')){
-          $(this).prop('disabled', true).addClass('temp-disabled');
-        }
-      });
-    } else {
-      // Re-enable any checkboxes that were temporarily disabled (if not permanently disabled)
-      $('input[name="meal_slot"].temp-disabled').each(function(){
-        if(!$(this).hasClass('perma-disabled')){
-          $(this).prop('disabled', false).removeClass('temp-disabled');
-        }
-      });
-    }
-    updatePubNightCheckboxes();
-  });
-
-  function updatePubNightCheckboxes() {
-    // Get the overall selected count
-    let selectedCount = $('input[name="meal_slot"]:checked').length;
-    // If we've already hit the max, do nothing
-    const maxMeals = parseInt($("#mealForm").data("max-meals")) || 2;
-    if (selectedCount >= maxMeals) {
-      return;
-    }
-
-    // Otherwise, check if any pub night is selected
-    let pubSelected = false;
-    $('input[name="meal_slot"]').each(function(){
-      if ($(this).data("pub") == 1 && $(this).is(":checked")) {
-        pubSelected = true;
+  // Toggle password visibility
+  const togglePasswordBtns = document.querySelectorAll('.toggle-password');
+  togglePasswordBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.target;
+      const input = document.getElementById(targetId);
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = 'Hide Password';
+      } else {
+        input.type = 'password';
+        btn.textContent = 'Show Password';
       }
     });
-    if(pubSelected) {
-      $('input[name="meal_slot"]').each(function(){
-        if ($(this).data("pub") == 1 && !$(this).is(":checked") && !$(this).prop("disabled")){
-          $(this).prop("disabled", true).addClass("temp-disabled");
-        }
-      });
-    } else {
-      $('input[name="meal_slot"]').each(function(){
-        if ($(this).data("pub") == 1 && $(this).hasClass("temp-disabled") && !$(this).hasClass("perma-disabled")){
-          $(this).prop("disabled", false).removeClass("temp-disabled");
-        }
-      });
+  });
+
+  // Meal selection logic
+  const mealSlotCheckboxes = document.querySelectorAll('input[name="meal_slot"]');
+  if (mealSlotCheckboxes.length > 0) {
+    const mealForm = document.getElementById('mealForm');
+    const maxMeals = parseInt(mealForm.dataset.maxMeals) || 2;
+    
+    function updateCheckboxStates() {
+      // Count selected slots
+      const selectedCount = document.querySelectorAll('input[name="meal_slot"]:checked').length;
+      
+      if (selectedCount >= maxMeals) {
+        // Disable unchecked meal slots
+        mealSlotCheckboxes.forEach(checkbox => {
+          if (!checkbox.checked && !checkbox.disabled) {
+            checkbox.disabled = true;
+            checkbox.classList.add('temp-disabled');
+          }
+        });
+      } else {
+        // Re-enable temporarily disabled checkboxes
+        document.querySelectorAll('input[name="meal_slot"].temp-disabled').forEach(checkbox => {
+          if (!checkbox.classList.contains('perma-disabled')) {
+            checkbox.disabled = false;
+            checkbox.classList.remove('temp-disabled');
+          }
+        });
+      }
+      
+      updatePubNightCheckboxes();
     }
+    
+    function updatePubNightCheckboxes() {
+      const selectedCount = document.querySelectorAll('input[name="meal_slot"]:checked').length;
+      if (selectedCount >= maxMeals) return;
+      
+      // Check if any pub night is selected
+      let pubSelected = false;
+      mealSlotCheckboxes.forEach(checkbox => {
+        if (checkbox.dataset.pub === '1' && checkbox.checked) {
+          pubSelected = true;
+        }
+      });
+      
+      if (pubSelected) {
+        // Disable unselected pub nights
+        mealSlotCheckboxes.forEach(checkbox => {
+          if (checkbox.dataset.pub === '1' && !checkbox.checked && !checkbox.disabled) {
+            checkbox.disabled = true;
+            checkbox.classList.add('temp-disabled');
+          }
+        });
+      } else {
+        // Re-enable temporarily disabled pub nights
+        mealSlotCheckboxes.forEach(checkbox => {
+          if (checkbox.dataset.pub === '1' && checkbox.classList.contains('temp-disabled') && 
+              !checkbox.classList.contains('perma-disabled')) {
+            checkbox.disabled = false;
+            checkbox.classList.remove('temp-disabled');
+          }
+        });
+      }
+    }
+    
+    // Add event listeners to all checkboxes
+    mealSlotCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', updateCheckboxStates);
+    });
+    
+    // Initial update
+    updateCheckboxStates();
   }
-
-  // Call updatePubNightCheckboxes initially
-  updatePubNightCheckboxes();
-
-  // NEW: Trigger a change event on all checkboxes to ensure that if 2 meals are already selected,
-  // all other unchecked checkboxes (pub or non-pub) are disabled.
-  $('input[name="meal_slot"]').trigger('change');
 });
+

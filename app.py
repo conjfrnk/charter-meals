@@ -1277,14 +1277,22 @@ def unauthorized(error):
 # Context Processor for Version
 # ---------------------------
 @app.context_processor
-def inject_version():
-    try:
-        version_path = os.path.join(os.path.dirname(__file__), "VERSION")
-        with open(version_path, "r") as vf:
-            version = vf.read().strip()
-    except Exception:
-        version = "unknown"
-    return {"version": version}
+def inject_asset_version():
+    """Inject a version number for static assets to improve cache control."""
+
+    def asset_url_for(filename):
+        try:
+            # Use the VERSION file to version static assets
+            version_path = os.path.join(os.path.dirname(__file__), "VERSION")
+            with open(version_path, "r") as vf:
+                version = vf.read().strip().replace(".", "_")
+        except Exception:
+            # If VERSION file can't be read, use current timestamp
+            version = str(int(time.time()))
+
+        return url_for("static", filename=filename) + "?v=" + version
+
+    return dict(asset_url_for=asset_url_for)
 
 
 if __name__ == "__main__":
