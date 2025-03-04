@@ -835,9 +835,8 @@ def index():
     current_meals = cur.fetchall()
 
     # -------------------------------
-    # NEW: Determine signup window
+    # NEW: Determine signup window based on admin settings
     # -------------------------------
-    # For next-week signups, we want the signup period to open on Saturday and close on Sunday of the current week.
     cur = db.execute(
         "SELECT key, value FROM settings WHERE key IN (?, ?, ?, ?, ?)",
         (
@@ -856,19 +855,36 @@ def index():
     now_eastern = datetime.now(ZoneInfo("America/New_York"))
     if reservation_status == "auto":
         try:
-            # Override: Always use current week Saturday and Sunday as the signup window.
-            target_time_open = datetime.strptime(settings.get("reservation_open_time"), "%H:%M").time()
-            target_time_close = datetime.strptime(settings.get("reservation_close_time"), "%H:%M").time()
-            
+            target_time_open = datetime.strptime(
+                settings.get("reservation_open_time"), "%H:%M"
+            ).time()
+            target_time_close = datetime.strptime(
+                settings.get("reservation_close_time"), "%H:%M"
+            ).time()
+            weekday_mapping = {
+                "Monday": 0,
+                "Tuesday": 1,
+                "Wednesday": 2,
+                "Thursday": 3,
+                "Friday": 4,
+                "Saturday": 5,
+                "Sunday": 6,
+            }
+            open_day_str = settings.get("reservation_open_day", "Saturday")
+            close_day_str = settings.get("reservation_close_day", "Sunday")
+            open_weekday = weekday_mapping.get(open_day_str, 5)
+            close_weekday = weekday_mapping.get(close_day_str, 6)
             # Compute current week's Monday
             current_monday = now_eastern.date() - timedelta(days=now_eastern.weekday())
-            saturday = current_monday + timedelta(days=5)
-            sunday = current_monday + timedelta(days=6)
-            
-            # Build open and close datetimes with US Eastern timezone
-            open_dt = datetime.combine(saturday, target_time_open, tzinfo=ZoneInfo("America/New_York"))
-            close_dt = datetime.combine(sunday, target_time_close, tzinfo=ZoneInfo("America/New_York"))
-            
+            open_date = current_monday + timedelta(days=open_weekday)
+            close_date = current_monday + timedelta(days=close_weekday)
+            open_dt = datetime.combine(
+                open_date, target_time_open, tzinfo=ZoneInfo("America/New_York")
+            )
+            close_dt = datetime.combine(
+                close_date, target_time_close, tzinfo=ZoneInfo("America/New_York")
+            )
+
             if now_eastern < open_dt:
                 signup_open = False
                 next_signup_open = open_dt

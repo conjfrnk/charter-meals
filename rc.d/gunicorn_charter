@@ -23,4 +23,3 @@ command_user="www"
 . /etc/rc.d/rc.subr
 
 rc_cmd "$1"
-

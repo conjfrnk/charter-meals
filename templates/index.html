@@ -68,7 +68,9 @@
                 {# If the user already has a manual pub night, disable any other pub night #}
                 <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}" disabled>
               {% elif full %}
-                <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}" disabled class="perma-disabled">
+                <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}" 
+                       {% if slot.id|string in user_reservations %} checked {% endif %}
+                       disabled class="perma-disabled">
               {% else %}
                 <input type="checkbox" id="slot-{{ slot.id }}" name="meal_slot" value="{{ slot.id }}"
                        data-pub="{{ 1 if is_pub else 0 }}"
