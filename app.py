@@ -938,16 +938,10 @@ def reserve():
         flash("Guest users cannot submit reservations.", "danger")
         return redirect(url_for("index"))
     selected_slots = set(request.form.getlist("meal_slot"))
-    client_timestamp = request.form.get("client_timestamp")
-    if not client_timestamp:
-        flash("Client timestamp missing.", "danger")
-        return redirect(url_for("index"))
-    client_timestamp = client_timestamp.replace("Z", "+00:00")
-    try:
-        datetime.fromisoformat(client_timestamp)
-    except ValueError as e:
-        flash("Invalid timestamp format: " + str(e), "danger")
-        return redirect(url_for("index"))
+
+    # Use server timestamp instead of client timestamp
+    server_timestamp = datetime.now(ZoneInfo("America/New_York")).isoformat()
+
     db = get_db()
     user_netid = session["netid"]
     today = date.today()
@@ -1040,7 +1034,7 @@ def reserve():
                 return redirect(url_for("index"))
             db.execute(
                 "INSERT INTO reservations (netid, meal_slot_id, timestamp) VALUES (?, ?, ?)",
-                (user_netid, slot_id, client_timestamp),
+                (user_netid, slot_id, server_timestamp),
             )
         except Exception as e:
             logging.error(f"Error adding reservation for slot {slot_id}: {e}")
