@@ -1323,6 +1323,17 @@ def unauthorized(error):
 # Context Processor for Version
 # ---------------------------
 @app.context_processor
+def inject_version():
+    try:
+        version_path = os.path.join(os.path.dirname(__file__), "VERSION")
+        with open(version_path, "r") as vf:
+            version = vf.read().strip()
+    except Exception:
+        version = "unknown"
+    return {"version": version}
+
+
+@app.context_processor
 def inject_asset_version():
     """Inject a version number for static assets to improve cache control."""
 
