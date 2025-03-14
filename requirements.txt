@@ -5,4 +5,4 @@ flask-talisman
 redis
 flask-compress
 flask-caching
-
+gunicorn
