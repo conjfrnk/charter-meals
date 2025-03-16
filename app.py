@@ -1003,6 +1003,10 @@ def reserve():
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
     next_sunday = next_monday + timedelta(days=6)
 
+    # -- Define current_week_start / current_week_end so we can use them below --
+    current_week_start = today - timedelta(days=today.weekday())
+    current_week_end = current_week_start + timedelta(days=6)
+
     # Get all manual pub reservations (admin-added pub night) for this week.
     cur = db.execute(
         "SELECT meal_slot_id FROM reservations r JOIN meal_slots ms ON r.meal_slot_id = ms.id "
@@ -1107,6 +1111,7 @@ def reserve():
     # Invalidate caches after reservation changes
     cache.delete_memoized(get_slot_counts, next_monday, next_sunday)
     cache.delete_memoized(get_user_reservations, user_netid, next_monday, next_sunday)
+    # Use the newly defined current_week_start/current_week_end here:
     cache.delete_memoized(
         get_user_current_meals, user_netid, current_week_start, current_week_end
     )
@@ -1338,6 +1343,8 @@ def inject_asset_version():
     """Inject a version number for static assets to improve cache control."""
 
     def asset_url_for(filename):
+        import time
+
         try:
             # Use the VERSION file to version static assets
             version_path = os.path.join(os.path.dirname(__file__), "VERSION")
