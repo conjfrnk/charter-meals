@@ -331,12 +331,33 @@ button:hover, input[type="submit"]:hover, a.button:hover {
     color: #C5A144;
   }
   
+  .admin-instructions h5 {
+    color: #C5A144;
+  }
+  
   .admin-instructions strong {
     color: #C5A144;
   }
   
   .admin-instructions em {
     color: #aaa;
+  }
+  
+  .admin-instructions p {
+    color: #e0e0e0;
+  }
+  
+  .admin-instructions ul {
+    color: #e0e0e0;
+  }
+  
+  .admin-instructions li {
+    color: #e0e0e0;
+  }
+  
+  .admin-instructions .instructions-content {
+    background-color: #1a1a2e;
+    color: #e0e0e0;
   }
   
   .warning-box {
@@ -528,6 +549,185 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   .error-message {
     background-color: #3b2e2e;
     color: #ef9a9a;
+  }
+  
+  /* Dark mode for all form elements */
+  input[type="text"],
+  input[type="password"],
+  input[type="file"],
+  input[type="time"],
+  select,
+  textarea {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  input[type="text"]:focus,
+  input[type="password"]:focus,
+  input[type="file"]:focus,
+  input[type="time"]:focus,
+  select:focus,
+  textarea:focus {
+    border-color: #C5A144;
+    box-shadow: 0 0 0 2px rgba(197, 161, 68, 0.2);
+  }
+  
+  /* Dark mode for all lists and paragraphs */
+  ul, ol {
+    color: #e0e0e0;
+  }
+  
+  li {
+    color: #e0e0e0;
+  }
+  
+  p {
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for labels */
+  label {
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for all admin page elements */
+  .tabcontent h3,
+  .tabcontent h4,
+  .tabcontent p,
+  .tabcontent ul,
+  .tabcontent li,
+  .tabcontent label {
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for archive section */
+  .archive-section {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  .archive-section h4 {
+    color: #C5A144;
+  }
+  
+  .archive-section p {
+    color: #e0e0e0;
+  }
+  
+  .archive-section ul {
+    color: #e0e0e0;
+  }
+  
+  .archive-section li {
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for slot entries */
+  .slot-entry {
+    background-color: #1e1e1e;
+    border-color: #444;
+    color: #e0e0e0;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+  }
+  
+  .slot-entry strong {
+    color: #C5A144;
+  }
+  
+  .slot-entry p {
+    color: #e0e0e0;
+  }
+  
+  .slot-entry ul {
+    color: #e0e0e0;
+  }
+  
+  .slot-entry li {
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for meal rule items */
+  .meal-rule-item {
+    background-color: #1e1e1e;
+    border-color: #444;
+    color: #e0e0e0;
+    padding: 5px;
+    margin: 5px 0;
+    border-radius: 3px;
+  }
+  
+  .meal-rule-item input {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  .meal-rule-item input:focus {
+    border-color: #C5A144;
+    box-shadow: 0 0 0 2px rgba(197, 161, 68, 0.2);
+  }
+  
+  /* Dark mode for remove rule button */
+  .remove-rule {
+    background-color: #dc3545 !important;
+    color: white !important;
+  }
+  
+  .remove-rule:hover {
+    background-color: #c82333 !important;
+  }
+  
+  /* Dark mode for add rule button */
+  #add-rule {
+    background-color: #28a745 !important;
+    color: white !important;
+  }
+  
+  #add-rule:hover {
+    background-color: #218838 !important;
+  }
+  
+  /* Dark mode for any remaining elements */
+  .tabcontent * {
+    color: #e0e0e0;
+  }
+  
+  .tabcontent strong {
+    color: #C5A144;
+  }
+  
+  .tabcontent code {
+    background-color: #2a2a2a;
+    color: #C5A144;
+  }
+  
+  /* Dark mode for file input styling */
+  input[type="file"] {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  /* Dark mode for placeholder text */
+  ::placeholder {
+    color: #888;
+  }
+  
+  /* Dark mode for any remaining admin page containers */
+  .admin-page-container {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for any remaining boxes */
+  .box, .container, .section {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border-color: #444;
   }
 }
 
