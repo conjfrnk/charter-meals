@@ -29,15 +29,20 @@
 </div>
 
 <div class="admin-tabs">
-  <button class="tablink" data-tab="reservations">Reservations</button>
-  <button class="tablink" data-tab="users">Users</button>
+  {% if is_admin %}
+    <button class="tablink" data-tab="reservations">Reservations</button>
+    <button class="tablink" data-tab="users">Users</button>
+  {% endif %}
   <button class="tablink" data-tab="admins">Admins</button>
-  <button class="tablink" data-tab="settings">Settings</button>
-  <button class="tablink" data-tab="content">Content</button>
-  <button class="tablink" data-tab="purge">Purge</button>
+  {% if is_admin %}
+    <button class="tablink" data-tab="settings">Settings</button>
+    <button class="tablink" data-tab="content">Content</button>
+    <button class="tablink" data-tab="purge">Purge</button>
+  {% endif %}
 </div>
 
 <div class="tab-contents">
+  {% if is_admin %}
   <!-- Reservations Tab -->
   <div id="reservations" class="tabcontent">
     <div class="reservations-subtabs">
@@ -82,8 +87,8 @@
                   <form method="POST" action="{{ url_for('admin_add_reservation') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="meal_slot_id" value="{{ slot.id }}">
-                    <label for="reservation_netid_{{ slot.id }}">Add NetID(s) (comma-separated):</label>
-                    <input type="text" name="reservation_netid" id="reservation_netid_{{ slot.id }}">
+                    <label for="reservation_netid_{{ slot.id }}">Add NetID(s) (CSV format):</label>
+                    <input type="text" name="reservation_netid" id="reservation_netid_{{ slot.id }}" placeholder="netid1,netid2,netid3">
                     <button type="submit">Add</button>
                   </form>
                   {% if regs|length > 0 %}
@@ -129,17 +134,17 @@
       <button type="submit">Bulk Remove NetIDs</button>
     </form>
 
-    <h3>Add Known User(s) (netID, comma‐separated)</h3>
+    <h3>Add Known User(s) (CSV format)</h3>
     <form method="POST" action="{{ url_for('admin_add_user') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="text" name="new_netid" placeholder="Enter netID(s), comma‐separated" required>
+      <input type="text" name="new_netid" placeholder="Enter netID(s) in CSV format: netid1,netid2,netid3" required>
       <button type="submit">Add User(s)</button>
     </form>
 
-    <h3>Delete Known User(s) (netID, comma‐separated)</h3>
+    <h3>Delete Known User(s) (CSV format)</h3>
     <form method="POST" action="{{ url_for('admin_delete_user') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="text" name="delete_netid" placeholder="Enter netID(s), comma‐separated" required>
+      <input type="text" name="delete_netid" placeholder="Enter netID(s) in CSV format: netid1,netid2,netid3" required>
       <button type="submit" onclick="return confirm('Are you sure you want to delete these user(s)?');">Delete User(s)</button>
     </form>
 
@@ -166,6 +171,7 @@
       {% endfor %}
     </ul>
   </div>
+  {% endif %}
 
   <!-- Admins Tab -->
   <div id="admins" class="tabcontent">
@@ -184,8 +190,8 @@
       {% endfor %}
     </ul>
 
-    {% if is_super_admin %}
     <h3>Add New Admin Account</h3>
+    <p><em>Any logged-in user can add new admin accounts, but only the primary admin can remove them.</em></p>
     <form method="POST" action="{{ url_for('admin_add_admin') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="text" name="new_admin_username" placeholder="New admin username" required>
@@ -193,9 +199,9 @@
       <button type="button" class="toggle-password" data-target="new_admin_password">Show Password</button>
       <button type="submit">Add Admin</button>
     </form>
-    {% endif %}
   </div>
 
+  {% if is_admin %}
   <!-- Settings Tab -->
   <div id="settings" class="tabcontent">
     <h3>Reservation Settings</h3>
@@ -370,6 +376,7 @@
       <button type="submit" class="danger-button">ARCHIVE & PURGE ALL DATA</button>
     </form>
   </div>
+  {% endif %}
 </div>
 
 <script>
@@ -384,5 +391,71 @@
     const div = btn.parentNode;
     div.parentNode.removeChild(div);
   }
+  
+  // Tab functionality
+  document.addEventListener('DOMContentLoaded', function() {
+    // Get all tab buttons
+    const tabButtons = document.querySelectorAll('.tablink');
+    
+    // Add click event listeners
+    tabButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        // Remove active class from all buttons
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Add active class to clicked button
+        this.classList.add('active');
+        
+        // Hide all tab contents
+        const tabContents = document.querySelectorAll('.tabcontent');
+        tabContents.forEach(content => content.style.display = 'none');
+        
+        // Show the corresponding tab content
+        const tabName = this.getAttribute('data-tab');
+        const tabContent = document.getElementById(tabName);
+        if (tabContent) {
+          tabContent.style.display = 'block';
+        }
+      });
+    });
+    
+    // Show the first available tab by default
+    const firstTab = document.querySelector('.tablink');
+    if (firstTab) {
+      firstTab.click();
+    }
+  });
+  
+  // Subtab functionality
+  document.addEventListener('DOMContentLoaded', function() {
+    const subtabButtons = document.querySelectorAll('.subtab-btn');
+    
+    subtabButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        // Remove active class from all subtab buttons
+        subtabButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Add active class to clicked button
+        this.classList.add('active');
+        
+        // Hide all subtab contents
+        const subtabContents = document.querySelectorAll('.subtab-content');
+        subtabContents.forEach(content => content.classList.remove('active'));
+        
+        // Show the corresponding subtab content
+        const subtabName = this.getAttribute('data-subtab');
+        const subtabContent = document.getElementById(subtabName);
+        if (subtabContent) {
+          subtabContent.classList.add('active');
+        }
+      });
+    });
+    
+    // Show the first subtab by default
+    const firstSubtab = document.querySelector('.subtab-btn');
+    if (firstSubtab) {
+      firstSubtab.click();
+    }
+  });
 </script>
 {% endblock %}

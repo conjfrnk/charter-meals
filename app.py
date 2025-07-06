@@ -419,8 +419,12 @@ def admin_change_password():
 
 
 @app.route("/admin/add_admin", methods=["POST"])
-@admin_required
 def admin_add_admin():
+    # Allow any logged-in user to add admins
+    if not session.get("netid") and not session.get("admin_username"):
+        flash("You must be logged in to add admin accounts.", "danger")
+        return redirect(url_for("admin"))
+    
     username = request.form.get("new_admin_username", "").strip()
     password = request.form.get("new_admin_password", "").strip()
     if not username or not password:
@@ -543,8 +547,11 @@ def admin_download_all_meal_signups():
 # Admin Dashboard and Settings
 # ---------------------------
 @app.route("/admin", methods=["GET", "POST"])
-@admin_required
 def admin():
+    # Allow any logged-in user to access admin page (for adding admins)
+    if not session.get("netid") and not session.get("admin_username"):
+        flash("You must be logged in to access the admin page.", "danger")
+        return redirect(url_for("login"))
     db = get_db()
     
     # Handle POST requests for content management
@@ -652,6 +659,7 @@ def admin():
     cur = db.execute("SELECT username FROM admins ORDER BY username")
     admin_accounts = [row["username"] for row in cur.fetchall()]
     is_super_admin = session.get("admin_username") == "admin"
+    is_admin = session.get("admin_username") is not None
 
     # For Reservations subtabs: next week's meal slots grouped by weekday (0=Monday ... 6=Sunday)
     today = date.today()
@@ -735,6 +743,7 @@ def admin():
         week_list=week_list,
         admin_accounts=admin_accounts,
         is_super_admin=is_super_admin,
+        is_admin=is_admin,
         weekly_slots=weekly_slots,
         reservation_status=reservation_status,
         reservation_open_day=reservation_open_day,
