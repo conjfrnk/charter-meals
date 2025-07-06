@@ -656,22 +656,22 @@ def admin():
     # Get content items for the content management tab
     cur = db.execute("SELECT content_key, content_value FROM website_content")
     content_items = {}
+    meal_rules_list = []
     for row in cur.fetchall():
         # Convert HTML back to markdown for editing
         content = row["content_value"]
         content_key = row["content_key"]
-        
+
         # Special handling for meal_rules - convert bulleted list back to lines
         if content_key == 'meal_rules':
             # Remove <ul> and </ul> tags
             content = content.replace('<ul>', '').replace('</ul>', '')
-            # Convert <li>...</li> to lines - handle nested HTML tags
             import re
             # Use a more robust regex that captures everything between <li> and </li>
-            content = re.sub(r'<li>(.*?)</li>', r'\1', content, flags=re.DOTALL)
-            # Split by </li> and join with newlines
-            lines = content.split('</li>')
-            content = '\n'.join([line.replace('<li>', '').strip() for line in lines if line.strip()])
+            rules = re.findall(r'<li>(.*?)</li>', content, flags=re.DOTALL)
+            meal_rules_list = [rule.strip() for rule in rules if rule.strip()]
+            # Also provide the joined string for backward compatibility
+            content = '\n'.join(meal_rules_list)
         else:
             # Convert HTML links back to markdown
             import re
@@ -682,8 +682,10 @@ def admin():
             content = re.sub(r'<em>([^<]+)</em>', r'*\1*', content)
             # Convert HTML line breaks back to newlines
             content = content.replace('<br>', '\n')
-        
+
         content_items[content_key] = content
+    # Add the meal_rules_list for the template
+    content_items['meal_rules_list'] = meal_rules_list
 
     return render_template(
         "admin.html",
@@ -1395,20 +1397,26 @@ def parse_markdown(text, content_key=None):
 def admin_content():
     db = get_db()
     if request.method == "POST":
-        # Handle multiple content updates from the form
         updated_count = 0
-        
-        # Define the expected content keys
         content_keys = [
             'welcome_header', 'welcome_message', 'contact_info', 
             'meal_rules_title', 'meal_rules', 'feedback_link', 'feedback_text'
         ]
-        
         for key in content_keys:
-            content_value = request.form.get(f"content_value_{key}", "").strip()
+            if key == 'meal_rules':
+                # Try to get the list of rules from the form
+                rules_list = request.form.getlist('content_value_meal_rules_list[]')
+                if rules_list:
+                    # Remove empty rules and strip whitespace
+                    rules_list = [r.strip() for r in rules_list if r.strip()]
+                    content_value = '\n'.join(rules_list)
+                else:
+                    # Fallback to textarea
+                    content_value = request.form.get(f"content_value_{key}", "").strip()
+            else:
+                content_value = request.form.get(f"content_value_{key}", "").strip()
             if content_value:
                 try:
-                    # Parse markdown and store the HTML version
                     html_content = parse_markdown(content_value, key)
                     db.execute(
                         "INSERT OR REPLACE INTO website_content (content_key, content_value, last_updated) VALUES (?, ?, CURRENT_TIMESTAMP)",
@@ -1417,34 +1425,32 @@ def admin_content():
                     updated_count += 1
                 except Exception as e:
                     flash(f"Error updating {key}: {str(e)}", "danger")
-        
         if updated_count > 0:
             db.commit()
             flash(f"Successfully updated {updated_count} content items.", "success")
         else:
             flash("No content was updated.", "warning")
-        
         return redirect(url_for("admin_content"))
     
     # Get all content for display as a dictionary
     cur = db.execute("SELECT content_key, content_value FROM website_content")
     content_items = {}
+    meal_rules_list = []
     for row in cur.fetchall():
         # Convert HTML back to markdown for editing
         content = row["content_value"]
         content_key = row["content_key"]
-        
+
         # Special handling for meal_rules - convert bulleted list back to lines
         if content_key == 'meal_rules':
             # Remove <ul> and </ul> tags
             content = content.replace('<ul>', '').replace('</ul>', '')
-            # Convert <li>...</li> to lines - handle nested HTML tags
             import re
             # Use a more robust regex that captures everything between <li> and </li>
-            content = re.sub(r'<li>(.*?)</li>', r'\1', content, flags=re.DOTALL)
-            # Split by </li> and join with newlines
-            lines = content.split('</li>')
-            content = '\n'.join([line.replace('<li>', '').strip() for line in lines if line.strip()])
+            rules = re.findall(r'<li>(.*?)</li>', content, flags=re.DOTALL)
+            meal_rules_list = [rule.strip() for rule in rules if rule.strip()]
+            # Also provide the joined string for backward compatibility
+            content = '\n'.join(meal_rules_list)
         else:
             # Convert HTML links back to markdown
             import re
@@ -1455,9 +1461,11 @@ def admin_content():
             content = re.sub(r'<em>([^<]+)</em>', r'*\1*', content)
             # Convert HTML line breaks back to newlines
             content = content.replace('<br>', '\n')
-        
+
         content_items[content_key] = content
-    
+    # Add the meal_rules_list for the template
+    content_items['meal_rules_list'] = meal_rules_list
+
     return render_template("admin_content.html", content_items=content_items)
 
 
