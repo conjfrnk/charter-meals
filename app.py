@@ -40,16 +40,21 @@ secret_path = os.path.join(os.path.dirname(__file__), "secrets.txt")
 try:
     with open(secret_path, "r") as f:
         app.secret_key = f.read().strip()
+        if not app.secret_key or len(app.secret_key or "") < 32:
+            raise RuntimeError("Secret key must be at least 32 characters long")
 except FileNotFoundError:
     raise RuntimeError(
         "Secret key file not found. Please create a 'secrets.txt' file with a generated secret key."
     )
+except Exception as e:
+    raise RuntimeError(f"Error reading secret key: {str(e)}")
 
 # Secure session cookie settings
 app.config.update(
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Strict",
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),  # 8 hour session timeout
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -90,6 +95,15 @@ if os.path.exists("/var/www/data"):
 else:
     app.config["DATABASE"] = "meals.db"
 
+# Ensure database directory exists
+db_dir = os.path.dirname(app.config["DATABASE"])
+if db_dir and not os.path.exists(db_dir):
+    try:
+        os.makedirs(db_dir, mode=0o755)
+    except OSError as e:
+        logging.error(f"Failed to create database directory {db_dir}: {e}")
+        raise RuntimeError(f"Cannot create database directory: {e}")
+
 Compress(app)
 
 cache_config = {
@@ -105,10 +119,16 @@ cache = Cache(app, config=cache_config)
 # ---------------------------
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(app.config["DATABASE"], check_same_thread=False)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON;")
-        g.db.execute("PRAGMA journal_mode=WAL;")
+        try:
+            g.db = sqlite3.connect(app.config["DATABASE"], check_same_thread=False)
+            g.db.row_factory = sqlite3.Row
+            g.db.execute("PRAGMA foreign_keys = ON;")
+            g.db.execute("PRAGMA journal_mode=WAL;")
+            g.db.execute("PRAGMA synchronous=NORMAL;")
+            g.db.execute("PRAGMA cache_size=10000;")
+        except sqlite3.Error as e:
+            logging.error(f"Database connection failed: {e}")
+            raise RuntimeError(f"Database connection failed: {e}")
     return g.db
 
 
@@ -283,34 +303,53 @@ def next_occurrence(target_weekday, target_time, ref):
 # ---------------------------
 def generate_next_week_meal_slots():
     global last_slot_generation
-    if (
-        last_slot_generation
-        and (datetime.now() - last_slot_generation).total_seconds() < 21600
-    ):
-        return
-    last_slot_generation = datetime.now()
-    db = get_db()
-    today = date.today()
-    next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
-    days = [next_monday + timedelta(days=i) for i in range(7)]
-    for d in days:
-        day_str = d.isoformat()
-        meals = (
-            ["breakfast", "lunch", "dinner"]
-            if d.weekday() < 5
-            else ["brunch", "dinner"]
-        )
-        for meal in meals:
-            cur = db.execute(
-                "SELECT id FROM meal_slots WHERE date = ? AND meal_type = ?",
-                (day_str, meal),
+    try:
+        if (
+            last_slot_generation
+            and (datetime.now() - last_slot_generation).total_seconds() < 21600
+        ):
+            return
+        
+        last_slot_generation = datetime.now()
+        db = get_db()
+        today = date.today()
+        next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
+        days = [next_monday + timedelta(days=i) for i in range(7)]
+        
+        slots_created = 0
+        for d in days:
+            day_str = d.isoformat()
+            meals = (
+                ["breakfast", "lunch", "dinner"]
+                if d.weekday() < 5
+                else ["brunch", "dinner"]
             )
-            if cur.fetchone() is None:
-                db.execute(
-                    "INSERT INTO meal_slots (date, meal_type, capacity) VALUES (?, ?, ?)",
-                    (day_str, meal, 25),
-                )
-    db.commit()
+            for meal in meals:
+                try:
+                    cur = db.execute(
+                        "SELECT id FROM meal_slots WHERE date = ? AND meal_type = ?",
+                        (day_str, meal),
+                    )
+                    if cur.fetchone() is None:
+                        db.execute(
+                            "INSERT INTO meal_slots (date, meal_type, capacity) VALUES (?, ?, ?)",
+                            (day_str, meal, 25),
+                        )
+                        slots_created += 1
+                except Exception as e:
+                    logging.error(f"Error creating meal slot for {day_str} {meal}: {e}")
+        
+        try:
+            db.commit()
+            if slots_created > 0:
+                logging.info(f"Generated {slots_created} new meal slots for week starting {next_monday}")
+        except Exception as e:
+            logging.error(f"Error committing meal slot generation: {e}")
+            db.rollback()
+            
+    except Exception as e:
+        logging.error(f"Error in generate_next_week_meal_slots: {e}")
+        # Don't raise the exception - we want the app to continue working
 
 
 def is_pub_slot(meal_slot):
@@ -350,8 +389,44 @@ def login_required(view):
 # ---------------------------
 # Enforce Admin Login on All Admin Routes
 # ---------------------------
+def validate_session():
+    """Validate session timeout and security."""
+    if session.get("admin_username"):
+        login_time_str = session.get("admin_login_time")
+        if login_time_str:
+            try:
+                login_time = datetime.fromisoformat(login_time_str)
+                if datetime.now() - login_time > timedelta(hours=8):
+                    session.clear()
+                    flash("Session expired. Please log in again.", "danger")
+                    return False
+            except (ValueError, TypeError):
+                session.clear()
+                flash("Invalid session. Please log in again.", "danger")
+                return False
+    
+    if session.get("netid"):
+        login_time_str = session.get("user_login_time")
+        if login_time_str:
+            try:
+                login_time = datetime.fromisoformat(login_time_str)
+                if datetime.now() - login_time > timedelta(hours=8):
+                    session.clear()
+                    flash("Session expired. Please log in again.", "danger")
+                    return False
+            except (ValueError, TypeError):
+                session.clear()
+                flash("Invalid session. Please log in again.", "danger")
+                return False
+    
+    return True
+
 @app.before_request
 def require_admin_for_admin_routes():
+    # Validate session first
+    if not validate_session():
+        return redirect(url_for("login"))
+    
     # If the request path starts with /admin and the endpoint is not "admin_login",
     # ensure an admin is logged in.
     if request.path.startswith("/admin") and request.endpoint != "admin_login":
@@ -366,17 +441,33 @@ def require_admin_for_admin_routes():
 @limiter.limit("10 per minute")
 def admin_login():
     if request.method == "POST":
-        username = request.form["username"].strip()
-        password = request.form["password"].strip()
-        db = get_db()
-        cur = db.execute("SELECT * FROM admins WHERE username = ?", (username,))
-        admin = cur.fetchone()
-        if admin and check_password_hash(admin["password"], password):
-            session["admin_username"] = username
-            flash("Admin logged in successfully.", "success")
-            return redirect(url_for("admin"))
-        else:
-            flash("Invalid admin credentials.", "danger")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        
+        # Input validation
+        if not username or not password:
+            flash("Username and password are required.", "danger")
+            return render_template("admin_login.html")
+        
+        if len(username) > 50 or len(password) > 100:
+            flash("Invalid input length.", "danger")
+            return render_template("admin_login.html")
+        
+        try:
+            db = get_db()
+            cur = db.execute("SELECT * FROM admins WHERE username = ?", (username,))
+            admin = cur.fetchone()
+            if admin and check_password_hash(admin["password"], password):
+                session["admin_username"] = username
+                session["admin_login_time"] = datetime.now().isoformat()
+                flash("Admin logged in successfully.", "success")
+                return redirect(url_for("admin"))
+            else:
+                flash("Invalid admin credentials.", "danger")
+        except Exception as e:
+            logging.error(f"Admin login error: {e}")
+            flash("An error occurred during login. Please try again.", "danger")
+    
     return render_template("admin_login.html")
 
 
@@ -795,16 +886,32 @@ def admin_settings():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        netid = request.form["netid"].strip()
-        db = get_db()
-        cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
-        user = cur.fetchone()
-        if user:
-            session["netid"] = netid
-            flash("Logged in successfully.", "success")
-            return redirect(url_for("index"))
-        else:
-            flash("Netid not recognized. Please contact the administrator.", "danger")
+        netid = request.form.get("netid", "").strip().lower()
+        
+        # Input validation
+        if not netid:
+            flash("NetID is required.", "danger")
+            return render_template("login.html")
+        
+        if len(netid) > 20 or not re.match(r'^[a-zA-Z0-9_-]+$', netid):
+            flash("Invalid NetID format.", "danger")
+            return render_template("login.html")
+        
+        try:
+            db = get_db()
+            cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
+            user = cur.fetchone()
+            if user:
+                session["netid"] = netid
+                session["user_login_time"] = datetime.now().isoformat()
+                flash("Logged in successfully.", "success")
+                return redirect(url_for("index"))
+            else:
+                flash("NetID not recognized. Please contact the administrator.", "danger")
+        except Exception as e:
+            logging.error(f"User login error: {e}")
+            flash("An error occurred during login. Please try again.", "danger")
+    
     return render_template("login.html")
 
 
@@ -825,32 +932,40 @@ def logout():
 @cache.memoize(timeout=60)  # Cache for 1 minute
 def get_meal_slots_data(start_date, end_date):
     """Get meal slots data for the given date range."""
-    db = get_db()
-    cur = db.execute(
-        "SELECT * FROM meal_slots WHERE date BETWEEN ? AND ? ORDER BY date",
-        (start_date.isoformat(), end_date.isoformat()),
-    )
-    return [dict(row) for row in cur.fetchall()]
+    try:
+        db = get_db()
+        cur = db.execute(
+            "SELECT * FROM meal_slots WHERE date BETWEEN ? AND ? ORDER BY date",
+            (start_date.isoformat(), end_date.isoformat()),
+        )
+        return [dict(row) for row in cur.fetchall()]
+    except Exception as e:
+        logging.error(f"Error getting meal slots data: {e}")
+        return []
 
 
 @cache.memoize(timeout=60)
 def get_slot_counts(start_date, end_date):
     """Get counts for each meal slot in the given date range."""
-    db = get_db()
-    cur = db.execute(
-        """
-        SELECT meal_slot_id, COUNT(*) as count
-        FROM reservations r
-        JOIN meal_slots ms ON r.meal_slot_id = ms.id
-        WHERE ms.date BETWEEN ? AND ?
-        GROUP BY meal_slot_id
-        """,
-        (start_date.isoformat(), end_date.isoformat()),
-    )
-    counts = {}
-    for row in cur.fetchall():
-        counts[str(row["meal_slot_id"])] = row["count"]
-    return counts
+    try:
+        db = get_db()
+        cur = db.execute(
+            """
+            SELECT meal_slot_id, COUNT(*) as count
+            FROM reservations r
+            JOIN meal_slots ms ON r.meal_slot_id = ms.id
+            WHERE ms.date BETWEEN ? AND ?
+            GROUP BY meal_slot_id
+            """,
+            (start_date.isoformat(), end_date.isoformat()),
+        )
+        counts = {}
+        for row in cur.fetchall():
+            counts[str(row["meal_slot_id"])] = row["count"]
+        return counts
+    except Exception as e:
+        logging.error(f"Error getting slot counts: {e}")
+        return {}
 
 
 @cache.memoize(timeout=30)
@@ -1081,16 +1196,37 @@ def reserve():
     if session.get("netid") == "guest":
         flash("Guest users cannot submit reservations.", "danger")
         return redirect(url_for("index"))
-    selected_slots = set(request.form.getlist("meal_slot"))
+    
+    # Validate input
+    selected_slots_raw = request.form.getlist("meal_slot")
+    if not selected_slots_raw:
+        flash("No meal slots selected.", "danger")
+        return redirect(url_for("index"))
+    
+    # Validate slot IDs are integers
+    selected_slots = set()
+    for slot_id in selected_slots_raw:
+        try:
+            slot_id_int = int(slot_id)
+            if slot_id_int > 0:
+                selected_slots.add(str(slot_id_int))
+        except (ValueError, TypeError):
+            flash("Invalid meal slot selection.", "danger")
+            return redirect(url_for("index"))
 
     # Use server timestamp instead of client timestamp
     server_timestamp = datetime.now(ZoneInfo("America/New_York")).isoformat()
 
-    db = get_db()
-    user_netid = session["netid"]
-    today = date.today()
-    next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
-    next_sunday = next_monday + timedelta(days=6)
+    try:
+        db = get_db()
+        user_netid = session["netid"]
+        today = date.today()
+        next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
+        next_sunday = next_monday + timedelta(days=6)
+    except Exception as e:
+        logging.error(f"Database connection error in reserve: {e}")
+        flash("Database connection error. Please try again.", "danger")
+        return redirect(url_for("index"))
 
     # -- Define current_week_start / current_week_end so we can use them below --
     current_week_start = today - timedelta(days=today.weekday())
@@ -1365,46 +1501,89 @@ def admin_bulk_delete_users():
 @app.route("/admin/add_reservation", methods=["POST"])
 @admin_required
 def admin_add_reservation():
-    db = get_db()
-    netids_str = request.form.get("reservation_netid", "")
-    netids = [x.strip().lower() for x in netids_str.split(",") if x.strip()]
-    meal_slot_id = request.form.get("meal_slot_id", "").strip()
-    if not netids or not meal_slot_id:
-        flash("Netid(s) and meal slot are required.", "danger")
-        return redirect(url_for("admin"))
-    cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (meal_slot_id,))
-    meal_slot = cur.fetchone()
-    if not meal_slot:
-        flash("Meal slot not found.", "danger")
-        return redirect(url_for("admin"))
-    timestamp = datetime.now().isoformat()
-    added = []
-    skipped = []
-    # ADMIN OVERRIDE: Do not check for capacity here. This allows manual overfilling.
-    for netid in netids:
+    try:
+        db = get_db()
+        netids_str = request.form.get("reservation_netid", "")
+        meal_slot_id = request.form.get("meal_slot_id", "").strip()
+        
+        # Input validation
+        if not meal_slot_id:
+            flash("Meal slot ID is required.", "danger")
+            return redirect(url_for("admin"))
+        
         try:
-            db.execute(
-                "INSERT INTO reservations (netid, meal_slot_id, timestamp, added_by) VALUES (?, ?, ?, ?)",
-                (netid, meal_slot_id, timestamp, session["admin_username"]),
-            )
-            added.append(netid)
-        except sqlite3.IntegrityError:
-            skipped.append(netid)
-    db.commit()
-    flash(
-        f"Added reservations for: {', '.join(added)}. Skipped: {', '.join(skipped)}",
-        "success",
-    )
+            meal_slot_id_int = int(meal_slot_id)
+            if meal_slot_id_int <= 0:
+                raise ValueError("Invalid meal slot ID")
+        except (ValueError, TypeError):
+            flash("Invalid meal slot ID.", "danger")
+            return redirect(url_for("admin"))
+        
+        # Validate netids
+        netids = []
+        for netid in netids_str.split(","):
+            netid = netid.strip().lower()
+            if netid and len(netid) <= 20 and re.match(r'^[a-zA-Z0-9_-]+$', netid):
+                netids.append(netid)
+        
+        if not netids:
+            flash("No valid NetIDs provided.", "danger")
+            return redirect(url_for("admin"))
+        
+        # Check if meal slot exists
+        cur = db.execute("SELECT id FROM meal_slots WHERE id = ?", (meal_slot_id_int,))
+        if not cur.fetchone():
+            flash("Meal slot not found.", "danger")
+            return redirect(url_for("admin"))
+        
+        added = []
+        skipped = []
+        server_timestamp = datetime.now(ZoneInfo("America/New_York")).isoformat()
+        
+        # ADMIN OVERRIDE: Do not check for capacity here. This allows manual overfilling.
+        for netid in netids:
+            try:
+                db.execute(
+                    "INSERT INTO reservations (netid, meal_slot_id, timestamp, added_by) VALUES (?, ?, ?, ?)",
+                    (netid, meal_slot_id_int, server_timestamp, session["admin_username"]),
+                )
+                added.append(netid)
+            except sqlite3.IntegrityError:
+                skipped.append(netid)
+        
+        db.commit()
+        flash(
+            f"Added reservations for: {', '.join(added)}. Skipped: {', '.join(skipped)}",
+            "success",
+        )
+        
+    except Exception as e:
+        logging.error(f"Error adding reservation: {e}")
+        flash("An error occurred while adding reservations.", "danger")
+    
     return redirect(url_for("admin"))
 
 
 @app.route("/admin/delete_reservation/<int:reservation_id>", methods=["POST"])
 @admin_required
 def admin_delete_reservation(reservation_id):
-    db = get_db()
-    db.execute("DELETE FROM reservations WHERE id = ?", (reservation_id,))
-    db.commit()
-    flash("Reservation deleted.", "success")
+    try:
+        db = get_db()
+        
+        # Check if reservation exists before deleting
+        cur = db.execute("SELECT id FROM reservations WHERE id = ?", (reservation_id,))
+        if not cur.fetchone():
+            flash("Reservation not found.", "danger")
+            return redirect(url_for("admin"))
+        
+        db.execute("DELETE FROM reservations WHERE id = ?", (reservation_id,))
+        db.commit()
+        flash("Reservation deleted.", "success")
+        
+    except Exception as e:
+        logging.error(f"Error deleting reservation {reservation_id}: {e}")
+        flash("An error occurred while deleting the reservation.", "danger")
+    
     return redirect(url_for("admin"))
 
 
@@ -1607,6 +1786,36 @@ def admin_clear_archive():
     
     return redirect(url_for("admin"))
 
+@app.route("/admin/backup_database")
+@admin_required
+def admin_backup_database():
+    """Create a backup of the current database."""
+    try:
+        import shutil
+        from datetime import datetime
+        
+        # Create backup filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"charter_meals_backup_{timestamp}.db"
+        
+        # Copy database file
+        shutil.copy2(app.config["DATABASE"], backup_filename)
+        
+        # Create response with backup file
+        response = Response(open(backup_filename, 'rb').read(), mimetype='application/octet-stream')
+        response.headers['Content-Disposition'] = f'attachment; filename={backup_filename}'
+        
+        # Clean up backup file after sending
+        import os
+        os.remove(backup_filename)
+        
+        return response
+        
+    except Exception as e:
+        logging.error(f"Database backup failed: {e}")
+        flash(f"Error creating backup: {str(e)}", "danger")
+        return redirect(url_for("admin"))
+
 
 # ---------------------------
 # Helper function to get website content
@@ -1622,6 +1831,48 @@ def get_website_content():
 @app.errorhandler(401)
 def unauthorized(error):
     return redirect(url_for("admin_login"))
+
+@app.errorhandler(404)
+def not_found(error):
+    flash("Page not found.", "danger")
+    return redirect(url_for("index"))
+
+@app.errorhandler(500)
+def internal_error(error):
+    logging.error(f"Internal server error: {error}")
+    flash("An internal server error occurred. Please try again later.", "danger")
+    return redirect(url_for("index"))
+
+@app.route("/health")
+def health_check():
+    """Health check endpoint for monitoring."""
+    try:
+        # Test database connection
+        db = get_db()
+        db.execute("SELECT 1")
+        
+        # Test cache connection (if Redis is available)
+        try:
+            cache.set("health_check", "ok", timeout=10)
+            cache_status = "ok"
+        except Exception:
+            cache_status = "error"
+        
+        return jsonify({
+            "status": "healthy",
+            "version": "2.0.0",
+            "database": "ok",
+            "cache": cache_status,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logging.error(f"Health check failed: {e}")
+        return jsonify({
+            "status": "unhealthy",
+            "version": "2.0.0",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
 
 
 # ---------------------------

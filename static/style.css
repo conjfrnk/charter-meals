@@ -136,6 +136,50 @@ a:focus, button:focus, input:focus, select:focus, textarea:focus {
   outline-offset: 2px;
 }
 
+/* Loading States */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Success/Error Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.success-animation {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Improved Button States */
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Better Mobile Responsiveness */
+@media (max-width: 480px) {
+  .content {
+    padding: 15px;
+    margin-top: 70px;
+  }
+  
+  header {
+    padding: 5px;
+  }
+  
+  header h1 {
+    font-size: 18px;
+  }
+  
+  .nav {
+    font-size: 12px;
+  }
+}
+
 /* Footer (Pinned to Bottom on All Devices) */
 footer {
   position: fixed;

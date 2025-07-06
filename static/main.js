@@ -175,5 +175,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial update
     updateCheckboxStates();
   }
+  
+  // Add loading states to forms
+  const forms = document.querySelectorAll('form');
+  forms.forEach(form => {
+    form.addEventListener('submit', function() {
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing...';
+        form.classList.add('loading');
+      }
+    });
+  });
+  
+  // Add success animations to flash messages
+  const flashMessages = document.querySelectorAll('#messages li');
+  flashMessages.forEach(message => {
+    message.classList.add('success-animation');
+  });
+  
+  // Auto-dismiss flash messages after 5 seconds
+  setTimeout(() => {
+    const messages = document.querySelectorAll('#messages li');
+    messages.forEach(message => {
+      message.style.opacity = '0';
+      setTimeout(() => {
+        if (message.parentNode) {
+          message.parentNode.removeChild(message);
+        }
+      }, 500);
+    });
+  }, 5000);
 });
 

@@ -1,8 +1,9 @@
-flask
-flask-wtf
-flask-limiter
-flask-talisman
-redis
-flask-compress
-flask-caching
-gunicorn
+flask>=2.3.0,<3.0.0
+flask-wtf>=1.1.0,<2.0.0
+flask-limiter>=3.4.0,<4.0.0
+flask-talisman>=1.0.0,<2.0.0
+redis>=4.5.0,<5.0.0
+flask-compress>=1.13.0,<2.0.0
+flask-caching>=2.0.0,<3.0.0
+gunicorn>=21.0.0,<22.0.0
+werkzeug>=2.3.0,<3.0.0

@@ -5,7 +5,15 @@
 <div class="admin-instructions">
   <h3>📋 Admin Instructions</h3>
   <div class="instructions-content">
-    <p><strong>Welcome to the Charter Meals Admin Dashboard!</strong> This interface allows you to manage all aspects of the meal signup system without editing any code.</p>
+    <p><strong>Welcome to the Charter Meals Admin Dashboard v2.0.0!</strong> This interface allows you to manage all aspects of the meal signup system without editing any code.</p>
+    
+    <h4>🚀 New Features in v2.0.0:</h4>
+    <ul>
+      <li><strong>Enhanced Security:</strong> 8-hour session timeout, improved input validation</li>
+      <li><strong>Better Error Handling:</strong> User-friendly error messages and logging</li>
+      <li><strong>Performance Improvements:</strong> Optimized database queries and caching</li>
+      <li><strong>Future-Proofing:</strong> Version-pinned dependencies and improved stability</li>
+    </ul>
     
     <h4>Quick Start Guide:</h4>
     <ul>
@@ -24,7 +32,15 @@
       <li>Configure settings in <strong>Settings</strong> tab</li>
     </ol>
     
-    <p><em>For detailed instructions, see the README file in the project repository.</em></p>
+    <h4>🔒 Security Notes:</h4>
+    <ul>
+      <li>Sessions automatically expire after 8 hours</li>
+      <li>All inputs are validated and sanitized</li>
+      <li>Rate limiting protects against brute force attacks</li>
+      <li>Regular backups are recommended</li>
+    </ul>
+    
+    <p><em>For detailed instructions and troubleshooting, see the README file in the project repository.</em></p>
   </div>
 </div>
 
@@ -350,6 +366,10 @@
       <div class="archive-actions">
         <a href="{{ url_for('admin_download_archive') }}" class="archive-button">
           📥 Download Archive
+        </a>
+        
+        <a href="{{ url_for('admin_backup_database') }}" class="archive-button">
+          💾 Database Backup
         </a>
         
         <form method="POST" action="{{ url_for('admin_clear_archive') }}" class="inline-form" onsubmit="return confirm('Are you sure you want to clear all archived data? This cannot be undone.');">

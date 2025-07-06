@@ -1,8 +1,24 @@
 # Charter Meals
 
-**Version:** v1.5.0
+**Version:** v2.0.0
 
 [Charter Meals](https://chartermeals.com) is a web application for managing meal sign-ups for the [Princeton Charter Club](https://charterclub.org). This project is built with Flask and includes many features, as detailed below:
+
+## 🚀 New in v2.0.0
+
+### Security & Performance Improvements
+- **Enhanced Input Validation**: All user inputs are now properly validated and sanitized
+- **Session Security**: 8-hour session timeout with automatic logout
+- **Database Security**: Improved error handling and connection management
+- **Rate Limiting**: Enhanced protection against brute force attacks
+- **Error Handling**: Comprehensive error handling with user-friendly messages
+- **Performance**: Optimized database queries and caching strategies
+
+### Future-Proofing Features
+- **Version Pinning**: All dependencies are now version-pinned for stability
+- **Database Migrations**: Improved migration system for schema updates
+- **Logging**: Enhanced logging for better debugging and monitoring
+- **Edge Case Handling**: Better handling of edge cases and error conditions
 
 ## Features
 
@@ -15,6 +31,21 @@
 - **CSV Downloads:** Reservation data is downloadable in CSV format.
 - **Responsive Design:** The interface works well on both desktop and mobile devices.
 - **Security & Performance:** Built-in CSRF protection, rate limiting, and a strict Content Security Policy.
+
+## 🔒 Security Features
+
+### Authentication & Authorization
+- **Session Management**: 8-hour session timeout with automatic logout
+- **Input Validation**: All inputs are validated and sanitized
+- **CSRF Protection**: Built-in CSRF protection on all forms
+- **Rate Limiting**: Protection against brute force attacks
+- **Secure Headers**: Content Security Policy and other security headers
+
+### Data Protection
+- **Password Hashing**: All passwords are hashed using pbkdf2:sha256
+- **SQL Injection Protection**: Parameterized queries throughout
+- **XSS Protection**: Input sanitization and output encoding
+- **Session Security**: Secure, HTTP-only cookies with SameSite protection
 
 ## Admin Instructions
 
@@ -104,25 +135,161 @@
 - **Access Control:** Limit admin access to trusted individuals
 - **Data Backup:** Regularly download CSV reports for backup
 - **Archive Safety:** Data is archived before deletion, but the purge function cannot be undone - use with caution
+- **Session Timeout:** Sessions automatically expire after 8 hours for security
 
 ### Technical Support
 
 - **Database Issues:** Use the `migrate-db` command to update schema
 - **Cache Issues:** The system automatically clears cache during purge
 - **Performance:** The system uses caching for optimal performance
+- **Error Logs:** Check application logs for detailed error information
 
-## Installation
+## 🛠️ Installation & Deployment
 
-1. Clone the repository
-2. Install dependencies: `pip install -r requirements.txt`
-3. Create a `secrets.txt` file with a secure secret key
-4. Initialize the database: `flask init-db`
-5. Run the application: `flask run`
+### Prerequisites
+- Python 3.8 or higher
+- Redis server (for rate limiting and caching)
+- SQLite (included with Python)
 
-## Dependencies
+### Installation
 
-See `requirements.txt` for the complete list of Python packages required.
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd charter-meals
+   ```
 
-## License
+2. **Create virtual environment:**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Create secret key:**
+   ```bash
+   # Generate a secure secret key (at least 32 characters)
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   ```
+   Create a `secrets.txt` file with the generated key.
+
+5. **Initialize the database:**
+   ```bash
+   flask init-db
+   ```
+
+6. **Run the application:**
+   ```bash
+   flask run
+   ```
+
+### Production Deployment
+
+1. **Set up Redis:**
+   ```bash
+   # Install Redis (Ubuntu/Debian)
+   sudo apt-get install redis-server
+   
+   # Start Redis
+   sudo systemctl start redis-server
+   ```
+
+2. **Configure environment:**
+   ```bash
+   export FLASK_ENV=production
+   export FLASK_APP=app.py
+   ```
+
+3. **Run with Gunicorn:**
+   ```bash
+   gunicorn -w 4 -b 0.0.0.0:8000 app:app
+   ```
+
+### System Requirements
+
+- **Memory:** Minimum 512MB RAM
+- **Storage:** 1GB free space for database and logs
+- **Network:** Internet access for external fonts and CDN resources
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Database Connection Errors:**
+   - Ensure the database directory has proper permissions
+   - Check if SQLite is properly installed
+   - Verify database file path in configuration
+
+2. **Redis Connection Issues:**
+   - Ensure Redis server is running: `redis-cli ping`
+   - Check Redis configuration in app.py
+   - Verify Redis port (default: 6379)
+
+3. **Session Issues:**
+   - Clear browser cookies and cache
+   - Check if secret key is properly set
+   - Verify session cookie settings
+
+4. **Performance Issues:**
+   - Check Redis cache status
+   - Monitor database query performance
+   - Review application logs for errors
+
+### Logging
+
+The application logs important events and errors. Check logs for:
+- Database connection issues
+- Authentication failures
+- Cache errors
+- General application errors
+
+### Maintenance
+
+- **Regular Backups:** Download CSV reports weekly
+- **Database Maintenance:** Run `flask migrate-db` after updates
+- **Cache Clearing:** System automatically clears cache during purge
+- **Log Rotation:** Implement log rotation for production deployments
+
+## 📋 Dependencies
+
+### Core Dependencies
+- **Flask 2.3+**: Web framework
+- **Flask-WTF 1.1+**: CSRF protection and form handling
+- **Flask-Limiter 3.4+**: Rate limiting
+- **Flask-Talisman 1.0+**: Security headers
+- **Redis 4.5+**: Caching and rate limiting storage
+- **Flask-Compress 1.13+**: Response compression
+- **Flask-Caching 2.0+**: Application caching
+- **Gunicorn 21.0+**: WSGI server for production
+- **Werkzeug 2.3+**: WSGI utilities
+
+### Security Features
+- CSRF protection on all forms
+- Rate limiting for login attempts
+- Secure session management
+- Input validation and sanitization
+- Content Security Policy headers
+
+## 📄 License
 
 This project is proprietary software for the Princeton Charter Club.
+
+## 🤝 Contributing
+
+For internal development and maintenance:
+1. Follow the existing code style
+2. Add comprehensive error handling
+3. Update documentation for any new features
+4. Test thoroughly before deployment
+5. Consider security implications of changes
+
+## 📞 Support
+
+For technical support or questions:
+- Check the troubleshooting section above
+- Review application logs for error details
+- Contact the development team for critical issues
