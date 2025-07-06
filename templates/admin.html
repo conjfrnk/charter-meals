@@ -321,21 +321,39 @@
 
   <!-- Purge Tab -->
   <div id="purge" class="tabcontent">
-    <h3>Semester Purge</h3>
+    <h3>Semester Archive & Purge</h3>
+    
+    <div class="archive-section">
+      <h4>📦 Archive Management</h4>
+      <p>Before purging data, you can download an archive of all current data for sentimental purposes.</p>
+      
+      <div class="archive-actions">
+        <a href="{{ url_for('admin_download_archive') }}" class="archive-button">
+          📥 Download Archive
+        </a>
+        
+        <form method="POST" action="{{ url_for('admin_clear_archive') }}" class="inline-form" onsubmit="return confirm('Are you sure you want to clear all archived data? This cannot be undone.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="clear-archive-button">🗑️ Clear Archive</button>
+        </form>
+      </div>
+    </div>
+    
     <div class="warning-box">
       <h4>⚠️ WARNING: This action cannot be undone!</h4>
-      <p>This will permanently delete:</p>
+      <p>This will archive and then permanently delete:</p>
       <ul>
         <li>All users (except admin accounts)</li>
         <li>All meal reservations</li>
         <li>All meal slots</li>
       </ul>
+      <p><strong>Note:</strong> Data will be archived before deletion, so you can download it later for sentimental purposes.</p>
       <p>Use this at the beginning of each semester to clear all data and start fresh.</p>
     </div>
     
-    <form method="POST" action="{{ url_for('admin_purge') }}" onsubmit="return confirm('Are you absolutely sure you want to purge all data? This action cannot be undone!');">
+    <form method="POST" action="{{ url_for('admin_purge') }}" onsubmit="return confirm('Are you absolutely sure you want to archive and purge all data? This action cannot be undone!');">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="danger-button">PURGE ALL DATA</button>
+      <button type="submit" class="danger-button">ARCHIVE & PURGE ALL DATA</button>
     </form>
   </div>
 </div>

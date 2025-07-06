@@ -65,15 +65,18 @@
 - `meal_rules_title`: Title for meal rules section
 - `meal_rules`: Meal signup rules (one rule per line, separated by \n)
 
-#### 6. Purge Tab (NEW)
-- **Semester Cleanup:** Delete all users, reservations, and meal slots
+#### 6. Purge Tab (UPDATED)
+- **Archive & Purge:** Archive all data before deletion for sentimental purposes
+- **Download Archive:** Download a CSV file containing all archived data
+- **Clear Archive:** Remove archived data to free up storage space
 - **Fresh Start:** Use at the beginning of each semester
 - **Safety Warnings:** Multiple confirmation dialogs prevent accidental purges
 
 ### Semester Management Workflow
 
 1. **Start of Semester:**
-   - Use the **Purge** tab to clear all old data
+   - Use the **Purge** tab to archive and clear all old data
+   - Download the archive file for sentimental purposes (optional)
    - Upload new user list via the **Users** tab
    - Configure reservation settings in the **Settings** tab
    - Update website content in the **Content** tab
@@ -85,7 +88,8 @@
 
 3. **End of Semester:**
    - Download final CSV reports
-   - Use **Purge** to prepare for next semester
+   - Use **Purge** to archive and prepare for next semester
+   - Consider downloading the archive file for sentimental purposes
 
 ### Content Management Best Practices
 
@@ -99,7 +103,7 @@
 - **Password Security:** Use strong passwords for admin accounts
 - **Access Control:** Limit admin access to trusted individuals
 - **Data Backup:** Regularly download CSV reports for backup
-- **Purge Safety:** The purge function cannot be undone - use with caution
+- **Archive Safety:** Data is archived before deletion, but the purge function cannot be undone - use with caution
 
 ### Technical Support
 
