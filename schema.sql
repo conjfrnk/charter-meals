@@ -4,6 +4,9 @@ DROP TABLE IF EXISTS reservations;
 DROP TABLE IF EXISTS admins;
 DROP TABLE IF EXISTS settings;
 DROP TABLE IF EXISTS website_content;
+DROP TABLE IF EXISTS archived_users;
+DROP TABLE IF EXISTS archived_meal_slots;
+DROP TABLE IF EXISTS archived_reservations;
 
 CREATE TABLE IF NOT EXISTS users (
     netid TEXT PRIMARY KEY,
@@ -71,6 +74,30 @@ BEGIN
       THEN RAISE(ABORT, 'This meal slot is full.')
     END;
 END;
+
+-- Archive tables for sentimental data preservation
+CREATE TABLE IF NOT EXISTS archived_users (
+    netid TEXT PRIMARY KEY,
+    name TEXT,
+    archived_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS archived_meal_slots (
+    id INTEGER PRIMARY KEY,
+    date TEXT NOT NULL,
+    meal_type TEXT NOT NULL,
+    capacity INTEGER NOT NULL DEFAULT 25,
+    archived_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS archived_reservations (
+    id INTEGER PRIMARY KEY,
+    netid TEXT NOT NULL,
+    meal_slot_id INTEGER NOT NULL,
+    timestamp TEXT NOT NULL,
+    added_by TEXT,
+    archived_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Indexes for faster queries
 CREATE INDEX IF NOT EXISTS idx_meal_slots_date ON meal_slots(date);

@@ -84,7 +84,11 @@ limiter = Limiter(
 )
 limiter.init_app(app)
 
-app.config["DATABASE"] = "/var/www/data/meals.db"
+# Use local database for development, production path for deployment
+if os.path.exists("/var/www/data"):
+    app.config["DATABASE"] = "/var/www/data/meals.db"
+else:
+    app.config["DATABASE"] = "meals.db"
 
 Compress(app)
 
@@ -1490,6 +1494,52 @@ def admin_delete_content(content_key):
 def admin_purge():
     db = get_db()
     try:
+        # Create archive tables if they don't exist
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS archived_users (
+                netid TEXT PRIMARY KEY,
+                name TEXT,
+                archived_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS archived_meal_slots (
+                id INTEGER PRIMARY KEY,
+                date TEXT NOT NULL,
+                meal_type TEXT NOT NULL,
+                capacity INTEGER NOT NULL DEFAULT 25,
+                archived_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS archived_reservations (
+                id INTEGER PRIMARY KEY,
+                netid TEXT NOT NULL,
+                meal_slot_id INTEGER NOT NULL,
+                timestamp TEXT NOT NULL,
+                added_by TEXT,
+                archived_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Archive all data before deletion
+        db.execute("""
+            INSERT INTO archived_users (netid, name)
+            SELECT netid, name FROM users
+        """)
+        
+        db.execute("""
+            INSERT INTO archived_meal_slots (id, date, meal_type, capacity)
+            SELECT id, date, meal_type, capacity FROM meal_slots
+        """)
+        
+        db.execute("""
+            INSERT INTO archived_reservations (id, netid, meal_slot_id, timestamp, added_by)
+            SELECT id, netid, meal_slot_id, timestamp, added_by FROM reservations
+        """)
+        
         # Delete all users except admins
         db.execute("DELETE FROM users")
         
@@ -1503,9 +1553,85 @@ def admin_purge():
         cache.clear()
         
         db.commit()
-        flash("All users, reservations, and meal slots have been purged. The system is ready for a new semester.", "success")
+        flash("All users, reservations, and meal slots have been archived and purged. The system is ready for a new semester.", "success")
     except Exception as e:
         flash(f"Error during purge: {str(e)}", "danger")
+    
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/download_archive")
+@admin_required
+def admin_download_archive():
+    """Download an archive file containing all archived data."""
+    db = get_db()
+    
+    try:
+        import csv
+        import io
+        from datetime import datetime
+        
+        # Create a string buffer to hold the CSV data
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header with archive timestamp
+        writer.writerow(['Charter Meals Archive'])
+        writer.writerow(['Generated on:', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+        writer.writerow([])
+        
+        # Export archived users
+        writer.writerow(['ARCHIVED USERS'])
+        writer.writerow(['NetID', 'Name', 'Archived At'])
+        cur = db.execute("SELECT netid, name, archived_at FROM archived_users ORDER BY netid")
+        for row in cur.fetchall():
+            writer.writerow([row['netid'], row['name'], row['archived_at']])
+        writer.writerow([])
+        
+        # Export archived meal slots
+        writer.writerow(['ARCHIVED MEAL SLOTS'])
+        writer.writerow(['ID', 'Date', 'Meal Type', 'Capacity', 'Archived At'])
+        cur = db.execute("SELECT id, date, meal_type, capacity, archived_at FROM archived_meal_slots ORDER BY date, meal_type")
+        for row in cur.fetchall():
+            writer.writerow([row['id'], row['date'], row['meal_type'], row['capacity'], row['archived_at']])
+        writer.writerow([])
+        
+        # Export archived reservations
+        writer.writerow(['ARCHIVED RESERVATIONS'])
+        writer.writerow(['ID', 'NetID', 'Meal Slot ID', 'Timestamp', 'Added By', 'Archived At'])
+        cur = db.execute("SELECT id, netid, meal_slot_id, timestamp, added_by, archived_at FROM archived_reservations ORDER BY timestamp")
+        for row in cur.fetchall():
+            writer.writerow([row['id'], row['netid'], row['meal_slot_id'], row['timestamp'], row['added_by'], row['archived_at']])
+        
+        # Get the CSV data
+        csv_data = output.getvalue()
+        output.close()
+        
+        # Create response with CSV data
+        from flask import Response
+        response = Response(csv_data, mimetype='text/csv')
+        response.headers['Content-Disposition'] = f'attachment; filename=charter_meals_archive_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        
+        return response
+        
+    except Exception as e:
+        flash(f"Error generating archive: {str(e)}", "danger")
+        return redirect(url_for("admin"))
+
+
+@app.route("/admin/clear_archive", methods=["POST"])
+@admin_required
+def admin_clear_archive():
+    """Clear all archived data."""
+    db = get_db()
+    try:
+        db.execute("DELETE FROM archived_users")
+        db.execute("DELETE FROM archived_meal_slots")
+        db.execute("DELETE FROM archived_reservations")
+        db.commit()
+        flash("All archived data has been cleared.", "success")
+    except Exception as e:
+        flash(f"Error clearing archive: {str(e)}", "danger")
     
     return redirect(url_for("admin"))
 
