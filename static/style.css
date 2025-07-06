@@ -393,6 +393,142 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   .save-button:hover {
     background-color: #218838 !important;
   }
+  
+  /* Dark mode for admin tabs */
+  .admin-tabs {
+    background-color: #2a2a2a;
+  }
+  
+  .tablink {
+    background-color: #1e1e1e;
+    color: #C5A144;
+    border: 1px solid #444;
+  }
+  
+  .tablink:hover {
+    background-color: #333;
+  }
+  
+  .tablink.active {
+    background-color: #C5A144;
+    color: #1e1e1e;
+  }
+  
+  .tabcontent {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for subtabs */
+  .subtab-buttons button {
+    background-color: #1e1e1e;
+    color: #C5A144;
+    border: 1px solid #444;
+  }
+  
+  .subtab-buttons button:hover {
+    background-color: #333;
+  }
+  
+  .subtab-buttons button.active {
+    background-color: #C5A144;
+    color: #1e1e1e;
+  }
+  
+  .subtab-content {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for slot entries */
+  .slot-entry {
+    background-color: #1e1e1e;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  .slot-entry strong {
+    color: #C5A144;
+  }
+  
+  /* Dark mode for archive section */
+  .archive-section {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  .archive-section h4 {
+    color: #C5A144;
+  }
+  
+  .archive-button {
+    background-color: #28a745 !important;
+    color: white !important;
+  }
+  
+  .archive-button:hover {
+    background-color: #218838 !important;
+  }
+  
+  .clear-archive-button {
+    background-color: #dc3545 !important;
+    color: white !important;
+  }
+  
+  .clear-archive-button:hover {
+    background-color: #c82333 !important;
+  }
+  
+  /* Dark mode for meal rule items */
+  .meal-rule-item {
+    background-color: #1e1e1e;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  .meal-rule-item input {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  .meal-rule-item input:focus {
+    border-color: #C5A144;
+    box-shadow: 0 0 0 2px rgba(197, 161, 68, 0.2);
+  }
+  
+  /* Dark mode for form elements */
+  .content-management-form input[type="text"],
+  .content-management-form input[type="password"],
+  .content-management-form input[type="file"],
+  .content-management-form select,
+  .content-management-form textarea {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  .content-management-form input[type="text"]:focus,
+  .content-management-form input[type="password"]:focus,
+  .content-management-form input[type="file"]:focus,
+  .content-management-form select:focus,
+  .content-management-form textarea:focus {
+    border-color: #C5A144;
+    box-shadow: 0 0 0 2px rgba(197, 161, 68, 0.2);
+  }
+  
+  /* Dark mode for inline forms */
+  .inline-form {
+    background-color: transparent;
+  }
+  
+  /* Dark mode for error messages */
+  .error-message {
+    background-color: #3b2e2e;
+    color: #ef9a9a;
+  }
 }
 
 /* Closed Banner Styles */
