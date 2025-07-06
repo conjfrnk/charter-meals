@@ -1860,7 +1860,7 @@ def health_check():
         
         return jsonify({
             "status": "healthy",
-            "version": "2.0.0",
+            "version": "2.0.1",
             "database": "ok",
             "cache": cache_status,
             "timestamp": datetime.now().isoformat()
@@ -1869,7 +1869,7 @@ def health_check():
         logging.error(f"Health check failed: {e}")
         return jsonify({
             "status": "unhealthy",
-            "version": "2.0.0",
+            "version": "2.0.1",
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }), 500

@@ -1,6 +1,20 @@
 # Changelog
 
-## [2.0.0] - 2024-01-XX
+## [v2] - 2024-01-XX
+
+### 🐛 Bug Fixes
+- **Footer Overlap**: Fixed footer overlapping with page content by adding bottom margin to content area
+- **Footer Text**: Reduced footer text size and improved spacing for better fit on all screen sizes
+- **Mobile Responsiveness**: Enhanced footer responsiveness with appropriate text sizing for different screen widths
+
+### 🎨 UI Improvements
+- **Whitespace**: Added proper bottom whitespace to prevent footer overlap on all pages
+- **Typography**: Improved footer text readability with better line-height and padding
+- **Responsive Design**: Better footer text sizing for mobile devices (11px) and desktop (12px)
+
+---
+
+## [v2] - 2024-01-XX
 
 ### 🚀 Major Improvements
 

@@ -1,10 +1,10 @@
 # Charter Meals
 
-**Version:** v2.0.0
+**Version:** v2
 
 [Charter Meals](https://chartermeals.com) is a web application for managing meal sign-ups for the [Princeton Charter Club](https://charterclub.org). This project is built with Flask and includes many features, as detailed below:
 
-## 🚀 New in v2.0.0
+## 🚀 New in v2
 
 ### Security & Performance Improvements
 - **Enhanced Input Validation**: All user inputs are now properly validated and sanitized

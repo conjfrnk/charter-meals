@@ -5,16 +5,8 @@
 <div class="admin-instructions">
   <h3>📋 Admin Instructions</h3>
   <div class="instructions-content">
-    <p><strong>Welcome to the Charter Meals Admin Dashboard v2.0.0!</strong> This interface allows you to manage all aspects of the meal signup system without editing any code.</p>
-    
-    <h4>🚀 New Features in v2.0.0:</h4>
-    <ul>
-      <li><strong>Enhanced Security:</strong> 8-hour session timeout, improved input validation</li>
-      <li><strong>Better Error Handling:</strong> User-friendly error messages and logging</li>
-      <li><strong>Performance Improvements:</strong> Optimized database queries and caching</li>
-      <li><strong>Future-Proofing:</strong> Version-pinned dependencies and improved stability</li>
-    </ul>
-    
+    <p><strong>Welcome to the Charter Meals Admin Dashboard</strong> This interface allows you to manage all aspects of the meal signup system without editing any code.</p>
+
     <h4>Quick Start Guide:</h4>
     <ul>
       <li><strong>Content Tab:</strong> Edit website text, meal rules, and contact information</li>
@@ -31,14 +23,6 @@
       <li>Update content in <strong>Content</strong> tab</li>
       <li>Configure settings in <strong>Settings</strong> tab</li>
     </ol>
-    
-    <h4>🔒 Security Notes:</h4>
-    <ul>
-      <li>Sessions automatically expire after 8 hours</li>
-      <li>All inputs are validated and sanitized</li>
-      <li>Rate limiting protects against brute force attacks</li>
-      <li>Regular backups are recommended</li>
-    </ul>
     
     <p><em>For detailed instructions and troubleshooting, see the README file in the project repository.</em></p>
   </div>
@@ -136,32 +120,18 @@
 
   <!-- Users Tab -->
   <div id="users" class="tabcontent">
-    <h3>Upload Known NetIDs and Names (CSV format: netID, name)</h3>
+    <h3>Upload Users (CSV format: netID, name)</h3>
     <form method="POST" action="{{ url_for('admin_upload_emails') }}" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="file" name="emails_file" accept=".txt,.csv" required>
       <button type="submit">Upload CSV</button>
     </form>
 
-    <h3>Bulk Remove NetIDs</h3>
+    <h3>Bulk Remove Users (CSV format: netID)</h3>
     <form method="POST" action="{{ url_for('admin_bulk_delete_users') }}" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="file" name="delete_netids_file" accept=".txt,.csv" required>
-      <button type="submit">Bulk Remove NetIDs</button>
-    </form>
-
-    <h3>Add Known User(s) (CSV format)</h3>
-    <form method="POST" action="{{ url_for('admin_add_user') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="text" name="new_netid" placeholder="Enter netID(s) in CSV format: netid1,netid2,netid3" required>
-      <button type="submit">Add User(s)</button>
-    </form>
-
-    <h3>Delete Known User(s) (CSV format)</h3>
-    <form method="POST" action="{{ url_for('admin_delete_user') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="text" name="delete_netid" placeholder="Enter netID(s) in CSV format: netid1,netid2,netid3" required>
-      <button type="submit" onclick="return confirm('Are you sure you want to delete these user(s)?');">Delete User(s)</button>
+      <button type="submit">Bulk Remove Users</button>
     </form>
 
     <h3>Known Users</h3>
