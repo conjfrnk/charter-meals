@@ -16,14 +16,18 @@
 
 <div id="rules">
   <h3>{{ website_content.get('meal_rules_title', 'Rules for Meal Sign-Up') }}</h3>
-  <ul>
-    {% set rules = website_content.get('meal_rules', 'You can sign up for a maximum of 2 meals per week (pub nights count as one meal).\nIn order to give everyone a chance to attend pub night, you may select at most 1 pub night (dinner of Tuesday or Thursday).\nAgain for the sake of fairness, if you attended a pub night last week, you cannot sign up for one this week (i.e. you can only sign up for a pub night every two weeks).\nIf a meal time is full or otherwise ineligible, the checkbox will not appear.') %}
-    {% for rule in rules.split('\n') %}
-      {% if rule.strip() %}
-        <li>{{ rule.strip() }}</li>
-      {% endif %}
-    {% endfor %}
-  </ul>
+  {% set rules = website_content.get('meal_rules', 'You can sign up for a maximum of 2 meals per week (pub nights count as one meal).\nIn order to give everyone a chance to attend pub night, you may select at most 1 pub night (dinner of Tuesday or Thursday).\nAgain for the sake of fairness, if you attended a pub night last week, you cannot sign up for one this week (i.e. you can only sign up for a pub night every two weeks).\nIf a meal time is full or otherwise ineligible, the checkbox will not appear.') %}
+  {% if rules.startswith('<ul>') %}
+    {{ rules|safe }}
+  {% else %}
+    <ul>
+      {% for rule in rules.split('\n') %}
+        {% if rule.strip() %}
+          <li>{{ rule.strip() }}</li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+  {% endif %}
 </div>
 
 <!-- Display current week's signups -->
