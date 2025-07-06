@@ -659,16 +659,30 @@ def admin():
     for row in cur.fetchall():
         # Convert HTML back to markdown for editing
         content = row["content_value"]
-        # Convert HTML links back to markdown
-        import re
-        content = re.sub(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', r'[\2](\1)', content)
-        # Convert HTML bold back to markdown
-        content = re.sub(r'<strong>([^<]+)</strong>', r'**\1**', content)
-        # Convert HTML italic back to markdown
-        content = re.sub(r'<em>([^<]+)</em>', r'*\1*', content)
-        # Convert HTML line breaks back to newlines
-        content = content.replace('<br>', '\n')
-        content_items[row["content_key"]] = content
+        content_key = row["content_key"]
+        
+        # Special handling for meal_rules - convert bulleted list back to lines
+        if content_key == 'meal_rules':
+            # Remove <ul> and </ul> tags
+            content = content.replace('<ul>', '').replace('</ul>', '')
+            # Convert <li>...</li> to lines
+            import re
+            content = re.sub(r'<li>([^<]+)</li>', r'\1', content)
+            # Split by </li> and join with newlines
+            lines = content.split('</li>')
+            content = '\n'.join([line.replace('<li>', '').strip() for line in lines if line.strip()])
+        else:
+            # Convert HTML links back to markdown
+            import re
+            content = re.sub(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', r'[\2](\1)', content)
+            # Convert HTML bold back to markdown
+            content = re.sub(r'<strong>([^<]+)</strong>', r'**\1**', content)
+            # Convert HTML italic back to markdown
+            content = re.sub(r'<em>([^<]+)</em>', r'*\1*', content)
+            # Convert HTML line breaks back to newlines
+            content = content.replace('<br>', '\n')
+        
+        content_items[content_key] = content
 
     return render_template(
         "admin.html",
@@ -1344,7 +1358,7 @@ def admin_delete_reservation(reservation_id):
 # ---------------------------
 # Content Management Routes
 # ---------------------------
-def parse_markdown(text):
+def parse_markdown(text, content_key=None):
     """Parse basic markdown formatting in text."""
     import re
     
@@ -1357,8 +1371,21 @@ def parse_markdown(text):
     # Convert italic text
     text = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', text)
     
-    # Convert line breaks to HTML
-    text = text.replace('\n', '<br>')
+    # Special handling for meal_rules - convert each line to a bulleted list item
+    if content_key == 'meal_rules':
+        lines = text.split('\n')
+        bulleted_lines = []
+        for line in lines:
+            line = line.strip()
+            if line:  # Only add non-empty lines
+                bulleted_lines.append(f'<li>{line}</li>')
+        if bulleted_lines:
+            text = f'<ul>{"".join(bulleted_lines)}</ul>'
+        else:
+            text = ''
+    else:
+        # Convert line breaks to HTML for other content
+        text = text.replace('\n', '<br>')
     
     return text
 
@@ -1381,7 +1408,7 @@ def admin_content():
             if content_value:
                 try:
                     # Parse markdown and store the HTML version
-                    html_content = parse_markdown(content_value)
+                    html_content = parse_markdown(content_value, key)
                     db.execute(
                         "INSERT OR REPLACE INTO website_content (content_key, content_value, last_updated) VALUES (?, ?, CURRENT_TIMESTAMP)",
                         (key, html_content)
@@ -1404,16 +1431,30 @@ def admin_content():
     for row in cur.fetchall():
         # Convert HTML back to markdown for editing
         content = row["content_value"]
-        # Convert HTML links back to markdown
-        import re
-        content = re.sub(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', r'[\2](\1)', content)
-        # Convert HTML bold back to markdown
-        content = re.sub(r'<strong>([^<]+)</strong>', r'**\1**', content)
-        # Convert HTML italic back to markdown
-        content = re.sub(r'<em>([^<]+)</em>', r'*\1*', content)
-        # Convert HTML line breaks back to newlines
-        content = content.replace('<br>', '\n')
-        content_items[row["content_key"]] = content
+        content_key = row["content_key"]
+        
+        # Special handling for meal_rules - convert bulleted list back to lines
+        if content_key == 'meal_rules':
+            # Remove <ul> and </ul> tags
+            content = content.replace('<ul>', '').replace('</ul>', '')
+            # Convert <li>...</li> to lines
+            import re
+            content = re.sub(r'<li>([^<]+)</li>', r'\1', content)
+            # Split by </li> and join with newlines
+            lines = content.split('</li>')
+            content = '\n'.join([line.replace('<li>', '').strip() for line in lines if line.strip()])
+        else:
+            # Convert HTML links back to markdown
+            import re
+            content = re.sub(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', r'[\2](\1)', content)
+            # Convert HTML bold back to markdown
+            content = re.sub(r'<strong>([^<]+)</strong>', r'**\1**', content)
+            # Convert HTML italic back to markdown
+            content = re.sub(r'<em>([^<]+)</em>', r'*\1*', content)
+            # Convert HTML line breaks back to newlines
+            content = content.replace('<br>', '\n')
+        
+        content_items[content_key] = content
     
     return render_template("admin_content.html", content_items=content_items)
 
