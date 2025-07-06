@@ -46,12 +46,12 @@
       <textarea name="content_value_meal_rules_title" rows="2" placeholder="Enter the rules section title">{{ content_items.get('meal_rules_title', 'Rules for Meal Sign-Up') }}</textarea>
     </div>
 
-    <!-- Meal Rules -->
-    <div class="content-section">
-      <h4>📜 Meal Rules</h4>
-      <p class="content-description">The rules for meal signups. Each line will become a separate rule.</p>
-      <textarea name="content_value_meal_rules" rows="8" placeholder="Enter meal rules (one per line)">{{ content_items.get('meal_rules', 'You can sign up for a maximum of 2 meals per week (pub nights count as one meal).\nIn order to give everyone a chance to attend pub night, you may select at most 1 pub night (dinner of Tuesday or Thursday).\nAgain for the sake of fairness, if you attended a pub night last week, you cannot sign up for one this week (i.e. you can only sign up for a pub night every two weeks).\nIf a meal time is full or otherwise ineligible, the checkbox will not appear.') }}</textarea>
-    </div>
+          <!-- Meal Rules -->
+      <div class="content-section">
+        <h4>📜 Meal Rules</h4>
+        <p class="content-description">The rules for meal signups. Each line will become a separate bullet point on the website.</p>
+        <textarea name="content_value_meal_rules" rows="8" placeholder="Enter meal rules (one per line)">{{ content_items.get('meal_rules', 'You can sign up for a maximum of 2 meals per week (pub nights count as one meal).\nIn order to give everyone a chance to attend pub night, you may select at most 1 pub night (dinner of Tuesday or Thursday).\nAgain for the sake of fairness, if you attended a pub night last week, you cannot sign up for one this week (i.e. you can only sign up for a pub night every two weeks).\nIf a meal time is full or otherwise ineligible, the checkbox will not appear.') }}</textarea>
+      </div>
 
     <!-- Feedback Link -->
     <div class="content-section">
