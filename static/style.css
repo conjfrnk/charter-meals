@@ -318,7 +318,7 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   }
   
   .admin-instructions {
-    background-color: #1a1a2e;
+    background-color: #1e1e1e;
     border-color: #C5A144;
     color: #e0e0e0;
   }
@@ -356,12 +356,12 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   }
   
   .admin-instructions .instructions-content {
-    background-color: #1a1a2e;
+    background-color: #1e1e1e;
     color: #e0e0e0;
   }
   
   .warning-box {
-    background-color: #2e1a1a;
+    background-color: #1e1e1e;
     border-color: #C5A144;
     color: #e0e0e0;
   }
