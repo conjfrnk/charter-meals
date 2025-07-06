@@ -653,6 +653,10 @@ def admin():
     reservation_close_day = new_settings.get("reservation_close_day", "Sunday")
     reservation_close_time = new_settings.get("reservation_close_time", "22:00")
 
+    # Get content items for the content management tab
+    cur = db.execute("SELECT * FROM website_content ORDER BY content_key")
+    content_items = [dict(row) for row in cur.fetchall()]
+
     return render_template(
         "admin.html",
         users=users,
@@ -667,6 +671,7 @@ def admin():
         reservation_close_day=reservation_close_day,
         reservation_close_time=reservation_close_time,
         is_pub_slot=is_pub_slot,
+        content_items=content_items,
     )
 
 
@@ -968,6 +973,9 @@ def index():
         meal_period_start = next_signup_close + timedelta(days=days_until_monday)
         meal_period_end = meal_period_start + timedelta(days=6)
 
+    # Get website content
+    website_content = get_website_content()
+
     return render_template(
         "index.html",
         slots_by_date=slots_by_date,
@@ -983,6 +991,7 @@ def index():
         user_has_pub_current=user_has_pub_current,
         manual_pub_info=manual_pub_info,
         meal_slots_dict=meal_slots_dict,
+        website_content=website_content,
     )
 
 
@@ -1317,6 +1326,93 @@ def admin_delete_reservation(reservation_id):
     db.commit()
     flash("Reservation deleted.", "success")
     return redirect(url_for("admin"))
+
+
+# ---------------------------
+# Content Management Routes
+# ---------------------------
+@app.route("/admin/content", methods=["GET", "POST"])
+@admin_required
+def admin_content():
+    db = get_db()
+    if request.method == "POST":
+        content_key = request.form.get("content_key", "").strip()
+        content_value = request.form.get("content_value", "").strip()
+        description = request.form.get("description", "").strip()
+        
+        if not content_key or not content_value:
+            flash("Content key and value are required.", "danger")
+            return redirect(url_for("admin_content"))
+        
+        try:
+            db.execute(
+                "INSERT OR REPLACE INTO website_content (content_key, content_value, description, last_updated) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+                (content_key, content_value, description)
+            )
+            db.commit()
+            flash("Content updated successfully.", "success")
+        except Exception as e:
+            flash(f"Error updating content: {str(e)}", "danger")
+        
+        return redirect(url_for("admin_content"))
+    
+    # Get all content for display
+    cur = db.execute("SELECT * FROM website_content ORDER BY content_key")
+    content_items = [dict(row) for row in cur.fetchall()]
+    
+    return render_template("admin_content.html", content_items=content_items)
+
+
+@app.route("/admin/delete_content/<content_key>", methods=["POST"])
+@admin_required
+def admin_delete_content(content_key):
+    db = get_db()
+    try:
+        db.execute("DELETE FROM website_content WHERE content_key = ?", (content_key,))
+        db.commit()
+        flash("Content deleted successfully.", "success")
+    except Exception as e:
+        flash(f"Error deleting content: {str(e)}", "danger")
+    return redirect(url_for("admin_content"))
+
+
+# ---------------------------
+# Purge Functionality
+# ---------------------------
+@app.route("/admin/purge", methods=["POST"])
+@admin_required
+def admin_purge():
+    db = get_db()
+    try:
+        # Delete all users except admins
+        db.execute("DELETE FROM users")
+        
+        # Delete all reservations
+        db.execute("DELETE FROM reservations")
+        
+        # Delete all meal slots
+        db.execute("DELETE FROM meal_slots")
+        
+        # Clear cache
+        cache.clear()
+        
+        db.commit()
+        flash("All users, reservations, and meal slots have been purged. The system is ready for a new semester.", "success")
+    except Exception as e:
+        flash(f"Error during purge: {str(e)}", "danger")
+    
+    return redirect(url_for("admin"))
+
+
+# ---------------------------
+# Helper function to get website content
+# ---------------------------
+@cache.memoize(timeout=300)  # Cache for 5 minutes
+def get_website_content():
+    """Get all website content from the database."""
+    db = get_db()
+    cur = db.execute("SELECT content_key, content_value FROM website_content")
+    return {row["content_key"]: row["content_value"] for row in cur.fetchall()}
 
 
 @app.errorhandler(401)

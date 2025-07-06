@@ -365,3 +365,203 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   opacity: 0;
   transition: opacity 0.5s;
 }
+
+/* Content Management Styles */
+.content-list {
+  margin-top: 20px;
+}
+
+.content-item {
+  border: 1px solid #ddd;
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+}
+
+.content-item h5 {
+  color: #561C1D;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.content-item p {
+  margin: 5px 0;
+  line-height: 1.4;
+}
+
+.content-item textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.content-item input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin: 5px 0;
+}
+
+/* Admin Instructions */
+.admin-instructions {
+  background-color: #e3f2fd;
+  border: 1px solid #2196f3;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  color: #1565c0;
+}
+
+.admin-instructions h3 {
+  color: #0d47a1;
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+.admin-instructions h4 {
+  color: #1565c0;
+  margin: 15px 0 8px 0;
+  font-size: 16px;
+}
+
+.admin-instructions ul,
+.admin-instructions ol {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.admin-instructions li {
+  margin-bottom: 5px;
+  line-height: 1.4;
+}
+
+.admin-instructions p {
+  margin: 10px 0;
+  line-height: 1.5;
+}
+
+.admin-instructions strong {
+  color: #0d47a1;
+}
+
+.admin-instructions em {
+  color: #666;
+  font-style: italic;
+}
+
+/* Warning Box for Purge */
+.warning-box {
+  background-color: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  color: #856404;
+}
+
+.warning-box h4 {
+  color: #721c1d;
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+.warning-box ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.warning-box li {
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+/* Danger Button */
+.danger-button {
+  background-color: #dc3545 !important;
+  color: white !important;
+  border-color: #dc3545 !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
+  padding: 15px 30px !important;
+}
+
+.danger-button:hover {
+  background-color: #c82333 !important;
+  border-color: #bd2130 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 12px rgba(220, 53, 69, 0.3) !important;
+}
+
+/* Form Styles for Content Management */
+.content-management-form {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+  border: 1px solid #dee2e6;
+}
+
+.content-management-form label {
+  display: block;
+  margin: 10px 0 5px 0;
+  font-weight: 500;
+  color: #495057;
+}
+
+.content-management-form input,
+.content-management-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.content-management-form input:focus,
+.content-management-form textarea:focus {
+  border-color: #561C1D;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(86, 28, 29, 0.2);
+}
+
+/* Responsive Design for Content Management */
+@media (max-width: 600px) {
+  .content-item {
+    padding: 10px;
+  }
+  
+  .warning-box {
+    padding: 15px;
+    margin: 15px 0;
+  }
+  
+  .danger-button {
+    width: 100%;
+    padding: 20px !important;
+    font-size: 18px !important;
+  }
+  
+  .content-management-form {
+    padding: 15px;
+  }
+  
+  .admin-instructions {
+    padding: 15px;
+    margin: 15px 0;
+  }
+  
+  .admin-instructions h3 {
+    font-size: 16px;
+  }
+  
+  .admin-instructions h4 {
+    font-size: 14px;
+  }
+}

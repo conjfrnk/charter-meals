@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Content Management</h2>
+
+<div class="admin-instructions">
+  <h3>📝 Content Management</h3>
+  <p>Edit the content that appears on the main meal signup page. This allows you to customize the welcome message, meal rules, and other text without editing code.</p>
+</div>
+
+<h3>Add/Edit Content</h3>
+<form method="POST" action="{{ url_for('admin_content') }}" class="content-management-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="content_key">Content Key:</label>
+  <input type="text" name="content_key" id="content_key" placeholder="e.g., welcome_header" required>
+  <br>
+  <label for="content_value">Content Value:</label>
+  <textarea name="content_value" id="content_value" rows="4" cols="50" placeholder="Enter the content text" required></textarea>
+  <br>
+  <label for="description">Description (optional):</label>
+  <input type="text" name="description" id="description" placeholder="Brief description of this content">
+  <br>
+  <button type="submit">Save Content</button>
+</form>
+
+<h3>Current Content</h3>
+<div class="content-list">
+  {% for item in content_items %}
+    <div class="content-item">
+      <h5>{{ item.content_key }}</h5>
+      <p><strong>Value:</strong> {{ item.content_value }}</p>
+      {% if item.description %}
+        <p><strong>Description:</strong> {{ item.description }}</p>
+      {% endif %}
+      <p><strong>Last Updated:</strong> {{ item.last_updated }}</p>
+      <form method="POST" action="{{ url_for('admin_delete_content', content_key=item.content_key) }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this content?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit">Delete</button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="admin-instructions">
+  <h4>Available Content Keys:</h4>
+  <ul>
+    <li><code>welcome_header</code>: Main page header</li>
+    <li><code>welcome_message</code>: Welcome message below header</li>
+    <li><code>contact_info</code>: Contact information text</li>
+    <li><code>feedback_link</code>: Feedback form URL</li>
+    <li><code>feedback_text</code>: Feedback text with link</li>
+    <li><code>meal_rules_title</code>: Title for meal rules section</li>
+    <li><code>meal_rules</code>: Meal signup rules (one rule per line, separated by \n)</li>
+  </ul>
+</div>
+
+<p><a href="{{ url_for('admin') }}">← Back to Admin Dashboard</a></p>
+{% endblock %} 

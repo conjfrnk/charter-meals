@@ -2,11 +2,39 @@
 {% block content %}
 <h2>Admin Dashboard</h2>
 
+<div class="admin-instructions">
+  <h3>📋 Admin Instructions</h3>
+  <div class="instructions-content">
+    <p><strong>Welcome to the Charter Meals Admin Dashboard!</strong> This interface allows you to manage all aspects of the meal signup system without editing any code.</p>
+    
+    <h4>Quick Start Guide:</h4>
+    <ul>
+      <li><strong>Content Tab:</strong> Edit website text, meal rules, and contact information</li>
+      <li><strong>Purge Tab:</strong> Clear all data at the start of each semester</li>
+      <li><strong>Users Tab:</strong> Upload new user lists and manage individual users</li>
+      <li><strong>Settings Tab:</strong> Configure when meal signups open and close</li>
+      <li><strong>Reservations Tab:</strong> Monitor signups and download reports</li>
+    </ul>
+    
+    <h4>Semester Workflow:</h4>
+    <ol>
+      <li>Use <strong>Purge</strong> to clear old data</li>
+      <li>Upload new user list in <strong>Users</strong> tab</li>
+      <li>Update content in <strong>Content</strong> tab</li>
+      <li>Configure settings in <strong>Settings</strong> tab</li>
+    </ol>
+    
+    <p><em>For detailed instructions, see the README file in the project repository.</em></p>
+  </div>
+</div>
+
 <div class="admin-tabs">
   <button class="tablink" data-tab="reservations">Reservations</button>
   <button class="tablink" data-tab="users">Users</button>
   <button class="tablink" data-tab="admins">Admins</button>
   <button class="tablink" data-tab="settings">Settings</button>
+  <button class="tablink" data-tab="content">Content</button>
+  <button class="tablink" data-tab="purge">Purge</button>
 </div>
 
 <div class="tab-contents">
@@ -200,6 +228,65 @@
       <input type="time" name="reservation_close_time" id="reservation_close_time" value="{{ reservation_close_time }}">
       <br>
       <button type="submit">Save Settings</button>
+    </form>
+  </div>
+
+  <!-- Content Tab -->
+  <div id="content" class="tabcontent">
+    <h3>Website Content Management</h3>
+    <p>Edit the content that appears on the main meal signup page. This allows you to customize the welcome message, meal rules, and other text without editing code.</p>
+    
+    <h4>Add/Edit Content</h4>
+    <form method="POST" action="{{ url_for('admin_content') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="content_key">Content Key:</label>
+      <input type="text" name="content_key" id="content_key" placeholder="e.g., welcome_header" required>
+      <br>
+      <label for="content_value">Content Value:</label>
+      <textarea name="content_value" id="content_value" rows="4" cols="50" placeholder="Enter the content text" required></textarea>
+      <br>
+      <label for="description">Description (optional):</label>
+      <input type="text" name="description" id="description" placeholder="Brief description of this content">
+      <br>
+      <button type="submit">Save Content</button>
+    </form>
+
+    <h4>Current Content</h4>
+    <div class="content-list">
+      {% for item in content_items %}
+        <div class="content-item">
+          <h5>{{ item.content_key }}</h5>
+          <p><strong>Value:</strong> {{ item.content_value }}</p>
+          {% if item.description %}
+            <p><strong>Description:</strong> {{ item.description }}</p>
+          {% endif %}
+          <p><strong>Last Updated:</strong> {{ item.last_updated }}</p>
+          <form method="POST" action="{{ url_for('admin_delete_content', content_key=item.content_key) }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this content?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">Delete</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Purge Tab -->
+  <div id="purge" class="tabcontent">
+    <h3>Semester Purge</h3>
+    <div class="warning-box">
+      <h4>⚠️ WARNING: This action cannot be undone!</h4>
+      <p>This will permanently delete:</p>
+      <ul>
+        <li>All users (except admin accounts)</li>
+        <li>All meal reservations</li>
+        <li>All meal slots</li>
+      </ul>
+      <p>Use this at the beginning of each semester to clear all data and start fresh.</p>
+    </div>
+    
+    <form method="POST" action="{{ url_for('admin_purge') }}" onsubmit="return confirm('Are you absolutely sure you want to purge all data? This action cannot be undone!');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="danger-button">PURGE ALL DATA</button>
     </form>
   </div>
 </div>
