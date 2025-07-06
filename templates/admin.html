@@ -234,10 +234,23 @@
   <!-- Content Tab -->
   <div id="content" class="tabcontent">
     <h3>Website Content Management</h3>
-    <p>Edit the content that appears on the main meal signup page. This allows you to customize the welcome message, meal rules, and other text without editing code.</p>
+    
+    <div class="admin-instructions">
+      <h4>📝 Content Management</h4>
+      <p>Edit the content that appears on the main meal signup page. This allows you to customize the welcome message, meal rules, and other text without editing code.</p>
+      
+      <h5>Quick Tips:</h5>
+      <ul>
+        <li><strong>Welcome Header:</strong> The main title that appears at the top of the meal signup page</li>
+        <li><strong>Welcome Message:</strong> The subtitle or description below the header</li>
+        <li><strong>Contact Info:</strong> Information about who to contact for questions</li>
+        <li><strong>Meal Rules:</strong> Use \n to separate multiple rules into different lines</li>
+        <li><strong>Feedback:</strong> Update the feedback form URL and text as needed</li>
+      </ul>
+    </div>
     
     <h4>Add/Edit Content</h4>
-    <form method="POST" action="{{ url_for('admin_content') }}">
+    <form method="POST" action="{{ url_for('admin_content') }}" class="content-management-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label for="content_key">Content Key:</label>
       <input type="text" name="content_key" id="content_key" placeholder="e.g., welcome_header" required>
@@ -267,6 +280,19 @@
           </form>
         </div>
       {% endfor %}
+    </div>
+    
+    <div class="admin-instructions">
+      <h5>Available Content Keys:</h5>
+      <ul>
+        <li><code>welcome_header</code>: Main page header</li>
+        <li><code>welcome_message</code>: Welcome message below header</li>
+        <li><code>contact_info</code>: Contact information text</li>
+        <li><code>feedback_link</code>: Feedback form URL</li>
+        <li><code>feedback_text</code>: Feedback text with link</li>
+        <li><code>meal_rules_title</code>: Title for meal rules section</li>
+        <li><code>meal_rules</code>: Meal signup rules (one rule per line, separated by \n)</li>
+      </ul>
     </div>
   </div>
 

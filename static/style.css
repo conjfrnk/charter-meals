@@ -282,6 +282,78 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   .content a:hover {
     text-decoration: underline;
   }
+  
+  /* Dark mode for content management */
+  .content-item {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  .content-item h5 {
+    color: #C5A144;
+  }
+  
+  .content-management-form {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  .content-management-form label {
+    color: #e0e0e0;
+  }
+  
+  .content-management-form input,
+  .content-management-form textarea {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  .content-management-form input:focus,
+  .content-management-form textarea:focus {
+    border-color: #C5A144;
+    box-shadow: 0 0 0 2px rgba(197, 161, 68, 0.2);
+  }
+  
+  .admin-instructions {
+    background-color: #1a1a2e;
+    border-color: #C5A144;
+    color: #e0e0e0;
+  }
+  
+  .admin-instructions h3 {
+    color: #C5A144;
+  }
+  
+  .admin-instructions h4 {
+    color: #C5A144;
+  }
+  
+  .admin-instructions strong {
+    color: #C5A144;
+  }
+  
+  .admin-instructions em {
+    color: #aaa;
+  }
+  
+  .warning-box {
+    background-color: #2e1a1a;
+    border-color: #C5A144;
+    color: #e0e0e0;
+  }
+  
+  .warning-box h4 {
+    color: #C5A144;
+  }
+  
+  /* Dark mode for code elements */
+  code {
+    background-color: #2a2a2a;
+    color: #C5A144;
+  }
 }
 
 /* Closed Banner Styles */
@@ -364,6 +436,16 @@ button:hover, input[type="submit"]:hover, a.button:hover {
 .fade-out {
   opacity: 0;
   transition: opacity 0.5s;
+}
+
+/* Code styling */
+code {
+  background-color: #f4f4f4;
+  color: #333;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
 }
 
 /* Content Management Styles */
