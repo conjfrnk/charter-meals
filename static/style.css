@@ -354,6 +354,45 @@ button:hover, input[type="submit"]:hover, a.button:hover {
     background-color: #2a2a2a;
     color: #C5A144;
   }
+  
+  /* Dark mode for content sections */
+  .content-section {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  .content-section h4 {
+    color: #C5A144;
+  }
+  
+  .content-description {
+    color: #aaa;
+  }
+  
+  .content-section textarea {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  .content-section textarea:focus {
+    border-color: #C5A144;
+    box-shadow: 0 0 0 3px rgba(197, 161, 68, 0.2);
+  }
+  
+  .form-actions {
+    border-top-color: #444;
+  }
+  
+  .save-button {
+    background-color: #28a745 !important;
+    color: white !important;
+  }
+  
+  .save-button:hover {
+    background-color: #218838 !important;
+  }
 }
 
 /* Closed Banner Styles */
@@ -613,6 +652,73 @@ code {
   box-shadow: 0 0 0 2px rgba(86, 28, 29, 0.2);
 }
 
+/* Content Sections */
+.content-section {
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.content-section h4 {
+  color: #561C1D;
+  margin-bottom: 8px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.content-description {
+  color: #6c757d;
+  font-size: 14px;
+  margin-bottom: 15px;
+  font-style: italic;
+}
+
+.content-section textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.content-section textarea:focus {
+  border-color: #C5A144;
+  box-shadow: 0 0 0 3px rgba(197, 161, 68, 0.1);
+  outline: none;
+}
+
+.form-actions {
+  text-align: center;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #dee2e6;
+}
+
+.save-button {
+  background-color: #28a745 !important;
+  color: white !important;
+  border-color: #28a745 !important;
+  font-size: 16px !important;
+  padding: 15px 30px !important;
+  font-weight: bold !important;
+}
+
+.save-button:hover {
+  background-color: #218838 !important;
+  border-color: #1e7e34 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 12px rgba(40, 167, 69, 0.3) !important;
+}
+
 /* Responsive Design for Content Management */
 @media (max-width: 600px) {
   .content-item {
@@ -645,5 +751,24 @@ code {
   
   .admin-instructions h4 {
     font-size: 14px;
+  }
+  
+  .content-section {
+    padding: 15px;
+    margin: 15px 0;
+  }
+  
+  .content-section h4 {
+    font-size: 16px;
+  }
+  
+  .content-description {
+    font-size: 13px;
+  }
+  
+  .save-button {
+    width: 100%;
+    padding: 20px !important;
+    font-size: 18px !important;
   }
 }

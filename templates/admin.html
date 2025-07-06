@@ -237,62 +237,85 @@
     
     <div class="admin-instructions">
       <h4>📝 Content Management</h4>
-      <p>Edit the content that appears on the main meal signup page. This allows you to customize the welcome message, meal rules, and other text without editing code.</p>
+      <p>Edit the content that appears on the main meal signup page. Each section below represents a different part of the website that you can customize.</p>
       
-      <h5>Quick Tips:</h5>
+      <h5>📋 Content Guidelines:</h5>
       <ul>
-        <li><strong>Welcome Header:</strong> The main title that appears at the top of the meal signup page</li>
-        <li><strong>Welcome Message:</strong> The subtitle or description below the header</li>
-        <li><strong>Contact Info:</strong> Information about who to contact for questions</li>
-        <li><strong>Meal Rules:</strong> Use \n to separate multiple rules into different lines</li>
-        <li><strong>Feedback:</strong> Update the feedback form URL and text as needed</li>
+        <li><strong>Line Breaks:</strong> Each line you type will become a separate line on the website</li>
+        <li><strong>Links:</strong> Use markdown format: <code>[Link Text](https://example.com)</code></li>
+        <li><strong>Bold Text:</strong> Use <code>**bold text**</code> for emphasis</li>
+        <li><strong>Italic Text:</strong> Use <code>*italic text*</code> for subtle emphasis</li>
       </ul>
     </div>
     
-    <h4>Add/Edit Content</h4>
     <form method="POST" action="{{ url_for('admin_content') }}" class="content-management-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label for="content_key">Content Key:</label>
-      <input type="text" name="content_key" id="content_key" placeholder="e.g., welcome_header" required>
-      <br>
-      <label for="content_value">Content Value:</label>
-      <textarea name="content_value" id="content_value" rows="4" cols="50" placeholder="Enter the content text" required></textarea>
-      <br>
-      <label for="description">Description (optional):</label>
-      <input type="text" name="description" id="description" placeholder="Brief description of this content">
-      <br>
-      <button type="submit">Save Content</button>
-    </form>
+      
+      <!-- Welcome Header -->
+      <div class="content-section">
+        <h4>🏠 Welcome Header</h4>
+        <p class="content-description">The main title that appears at the top of the meal signup page</p>
+        <textarea name="content_value_welcome_header" rows="2" placeholder="Enter the main header text">{{ content_items.get('welcome_header', 'Welcome to Charter!!') }}</textarea>
+      </div>
 
-    <h4>Current Content</h4>
-    <div class="content-list">
-      {% for item in content_items %}
-        <div class="content-item">
-          <h5>{{ item.content_key }}</h5>
-          <p><strong>Value:</strong> {{ item.content_value }}</p>
-          {% if item.description %}
-            <p><strong>Description:</strong> {{ item.description }}</p>
-          {% endif %}
-          <p><strong>Last Updated:</strong> {{ item.last_updated }}</p>
-          <form method="POST" action="{{ url_for('admin_delete_content', content_key=item.content_key) }}" class="inline-form" onsubmit="return confirm('Are you sure you want to delete this content?');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit">Delete</button>
-          </form>
-        </div>
-      {% endfor %}
-    </div>
+      <!-- Welcome Message -->
+      <div class="content-section">
+        <h4>💬 Welcome Message</h4>
+        <p class="content-description">The subtitle or description below the header</p>
+        <textarea name="content_value_welcome_message" rows="3" placeholder="Enter the welcome message">{{ content_items.get('welcome_message', 'We can\'t wait to see you at Charter meals!') }}</textarea>
+      </div>
+
+      <!-- Contact Info -->
+      <div class="content-section">
+        <h4>📞 Contact Information</h4>
+        <p class="content-description">Information about who to contact for questions</p>
+        <textarea name="content_value_contact_info" rows="3" placeholder="Enter contact information">{{ content_items.get('contact_info', 'Contact our kitchen managers, Tiffany and Hector, if you have any questions.') }}</textarea>
+      </div>
+
+      <!-- Meal Rules Title -->
+      <div class="content-section">
+        <h4>📋 Meal Rules Title</h4>
+        <p class="content-description">The title for the meal rules section</p>
+        <textarea name="content_value_meal_rules_title" rows="2" placeholder="Enter the rules section title">{{ content_items.get('meal_rules_title', 'Rules for Meal Sign-Up') }}</textarea>
+      </div>
+
+      <!-- Meal Rules -->
+      <div class="content-section">
+        <h4>📜 Meal Rules</h4>
+        <p class="content-description">The rules for meal signups. Each line will become a separate rule.</p>
+        <textarea name="content_value_meal_rules" rows="8" placeholder="Enter meal rules (one per line)">{{ content_items.get('meal_rules', 'You can sign up for a maximum of 2 meals per week (pub nights count as one meal).\nIn order to give everyone a chance to attend pub night, you may select at most 1 pub night (dinner of Tuesday or Thursday).\nAgain for the sake of fairness, if you attended a pub night last week, you cannot sign up for one this week (i.e. you can only sign up for a pub night every two weeks).\nIf a meal time is full or otherwise ineligible, the checkbox will not appear.') }}</textarea>
+      </div>
+
+      <!-- Feedback Link -->
+      <div class="content-section">
+        <h4>🔗 Feedback Form URL</h4>
+        <p class="content-description">The URL for the feedback form</p>
+        <textarea name="content_value_feedback_link" rows="2" placeholder="Enter the feedback form URL">{{ content_items.get('feedback_link', 'https://forms.gle/PawcrnA9y9CtAgDM9') }}</textarea>
+      </div>
+
+      <!-- Feedback Text -->
+      <div class="content-section">
+        <h4>💭 Feedback Text</h4>
+        <p class="content-description">The text that appears with the feedback link</p>
+        <textarea name="content_value_feedback_text" rows="3" placeholder="Enter feedback text">{{ content_items.get('feedback_text', 'If you have any feedback on this website, please fill out this form. Thanks! -Connor') }}</textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="save-button">💾 Save All Content</button>
+      </div>
+    </form>
     
     <div class="admin-instructions">
-      <h5>Available Content Keys:</h5>
+      <h5>💡 Markdown Formatting Tips:</h5>
       <ul>
-        <li><code>welcome_header</code>: Main page header</li>
-        <li><code>welcome_message</code>: Welcome message below header</li>
-        <li><code>contact_info</code>: Contact information text</li>
-        <li><code>feedback_link</code>: Feedback form URL</li>
-        <li><code>feedback_text</code>: Feedback text with link</li>
-        <li><code>meal_rules_title</code>: Title for meal rules section</li>
-        <li><code>meal_rules</code>: Meal signup rules (one rule per line, separated by \n)</li>
+        <li><code>[Link Text](https://example.com)</code> - Creates a clickable link</li>
+        <li><code>**Bold Text**</code> - Makes text bold</li>
+        <li><code>*Italic Text*</code> - Makes text italic</li>
+        <li>Just press Enter for new lines - no need for \n</li>
       </ul>
+      
+      <h5>📱 Preview:</h5>
+      <p>After saving, you can visit the main page to see how your changes look!</p>
     </div>
   </div>
 

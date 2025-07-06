@@ -654,8 +654,21 @@ def admin():
     reservation_close_time = new_settings.get("reservation_close_time", "22:00")
 
     # Get content items for the content management tab
-    cur = db.execute("SELECT * FROM website_content ORDER BY content_key")
-    content_items = [dict(row) for row in cur.fetchall()]
+    cur = db.execute("SELECT content_key, content_value FROM website_content")
+    content_items = {}
+    for row in cur.fetchall():
+        # Convert HTML back to markdown for editing
+        content = row["content_value"]
+        # Convert HTML links back to markdown
+        import re
+        content = re.sub(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', r'[\2](\1)', content)
+        # Convert HTML bold back to markdown
+        content = re.sub(r'<strong>([^<]+)</strong>', r'**\1**', content)
+        # Convert HTML italic back to markdown
+        content = re.sub(r'<em>([^<]+)</em>', r'*\1*', content)
+        # Convert HTML line breaks back to newlines
+        content = content.replace('<br>', '\n')
+        content_items[row["content_key"]] = content
 
     return render_template(
         "admin.html",
@@ -1331,34 +1344,76 @@ def admin_delete_reservation(reservation_id):
 # ---------------------------
 # Content Management Routes
 # ---------------------------
+def parse_markdown(text):
+    """Parse basic markdown formatting in text."""
+    import re
+    
+    # Convert markdown links to HTML
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" target="_blank">\1</a>', text)
+    
+    # Convert bold text
+    text = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', text)
+    
+    # Convert italic text
+    text = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', text)
+    
+    # Convert line breaks to HTML
+    text = text.replace('\n', '<br>')
+    
+    return text
+
 @app.route("/admin/content", methods=["GET", "POST"])
 @admin_required
 def admin_content():
     db = get_db()
     if request.method == "POST":
-        content_key = request.form.get("content_key", "").strip()
-        content_value = request.form.get("content_value", "").strip()
-        description = request.form.get("description", "").strip()
+        # Handle multiple content updates from the form
+        updated_count = 0
         
-        if not content_key or not content_value:
-            flash("Content key and value are required.", "danger")
-            return redirect(url_for("admin_content"))
+        # Define the expected content keys
+        content_keys = [
+            'welcome_header', 'welcome_message', 'contact_info', 
+            'meal_rules_title', 'meal_rules', 'feedback_link', 'feedback_text'
+        ]
         
-        try:
-            db.execute(
-                "INSERT OR REPLACE INTO website_content (content_key, content_value, description, last_updated) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
-                (content_key, content_value, description)
-            )
+        for key in content_keys:
+            content_value = request.form.get(f"content_value_{key}", "").strip()
+            if content_value:
+                try:
+                    # Parse markdown and store the HTML version
+                    html_content = parse_markdown(content_value)
+                    db.execute(
+                        "INSERT OR REPLACE INTO website_content (content_key, content_value, last_updated) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                        (key, html_content)
+                    )
+                    updated_count += 1
+                except Exception as e:
+                    flash(f"Error updating {key}: {str(e)}", "danger")
+        
+        if updated_count > 0:
             db.commit()
-            flash("Content updated successfully.", "success")
-        except Exception as e:
-            flash(f"Error updating content: {str(e)}", "danger")
+            flash(f"Successfully updated {updated_count} content items.", "success")
+        else:
+            flash("No content was updated.", "warning")
         
         return redirect(url_for("admin_content"))
     
-    # Get all content for display
-    cur = db.execute("SELECT * FROM website_content ORDER BY content_key")
-    content_items = [dict(row) for row in cur.fetchall()]
+    # Get all content for display as a dictionary
+    cur = db.execute("SELECT content_key, content_value FROM website_content")
+    content_items = {}
+    for row in cur.fetchall():
+        # Convert HTML back to markdown for editing
+        content = row["content_value"]
+        # Convert HTML links back to markdown
+        import re
+        content = re.sub(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', r'[\2](\1)', content)
+        # Convert HTML bold back to markdown
+        content = re.sub(r'<strong>([^<]+)</strong>', r'**\1**', content)
+        # Convert HTML italic back to markdown
+        content = re.sub(r'<em>([^<]+)</em>', r'*\1*', content)
+        # Convert HTML line breaks back to newlines
+        content = content.replace('<br>', '\n')
+        content_items[row["content_key"]] = content
     
     return render_template("admin_content.html", content_items=content_items)
 
