@@ -665,9 +665,10 @@ def admin():
         if content_key == 'meal_rules':
             # Remove <ul> and </ul> tags
             content = content.replace('<ul>', '').replace('</ul>', '')
-            # Convert <li>...</li> to lines
+            # Convert <li>...</li> to lines - handle nested HTML tags
             import re
-            content = re.sub(r'<li>([^<]+)</li>', r'\1', content)
+            # Use a more robust regex that captures everything between <li> and </li>
+            content = re.sub(r'<li>(.*?)</li>', r'\1', content, flags=re.DOTALL)
             # Split by </li> and join with newlines
             lines = content.split('</li>')
             content = '\n'.join([line.replace('<li>', '').strip() for line in lines if line.strip()])
@@ -942,12 +943,12 @@ def index():
 
     if reservation_status == "auto":
         try:
-            target_time_open = datetime.strptime(
-                settings.get("reservation_open_time"), "%H:%M"
-            ).time()
-            target_time_close = datetime.strptime(
-                settings.get("reservation_close_time"), "%H:%M"
-            ).time()
+            open_time_str = settings.get("reservation_open_time")
+            close_time_str = settings.get("reservation_close_time")
+            if not open_time_str or not close_time_str:
+                raise ValueError("Missing reservation_open_time or reservation_close_time in settings.")
+            target_time_open = datetime.strptime(open_time_str, "%H:%M").time()
+            target_time_close = datetime.strptime(close_time_str, "%H:%M").time()
             weekday_mapping = {
                 "Monday": 0,
                 "Tuesday": 1,
@@ -1437,9 +1438,10 @@ def admin_content():
         if content_key == 'meal_rules':
             # Remove <ul> and </ul> tags
             content = content.replace('<ul>', '').replace('</ul>', '')
-            # Convert <li>...</li> to lines
+            # Convert <li>...</li> to lines - handle nested HTML tags
             import re
-            content = re.sub(r'<li>([^<]+)</li>', r'\1', content)
+            # Use a more robust regex that captures everything between <li> and </li>
+            content = re.sub(r'<li>(.*?)</li>', r'\1', content, flags=re.DOTALL)
             # Split by </li> and join with newlines
             lines = content.split('</li>')
             content = '\n'.join([line.replace('<li>', '').strip() for line in lines if line.strip()])
