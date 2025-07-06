@@ -729,6 +729,278 @@ button:hover, input[type="submit"]:hover, a.button:hover {
     color: #e0e0e0;
     border-color: #444;
   }
+  
+  /* Dark mode for all remaining admin page elements */
+  .reservations-subtabs {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+  }
+  
+  .subtab-buttons {
+    background-color: #1e1e1e;
+    border-color: #444;
+  }
+  
+  .subtab-contents {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for all form elements in admin page */
+  .tabcontent form {
+    background-color: transparent;
+    color: #e0e0e0;
+  }
+  
+  .tabcontent form label {
+    color: #e0e0e0;
+  }
+  
+  .tabcontent form input[type="hidden"] {
+    background-color: transparent;
+    border: none;
+  }
+  
+  /* Dark mode for password toggle button */
+  .toggle-password {
+    background-color: #6c757d !important;
+    color: white !important;
+  }
+  
+  .toggle-password:hover {
+    background-color: #5a6268 !important;
+  }
+  
+  /* Dark mode for all buttons in admin page */
+  .tabcontent button {
+    background-color: #561C1D !important;
+    color: #C5A144 !important;
+    border: 1px solid #444;
+  }
+  
+  .tabcontent button:hover {
+    background-color: #C5A144 !important;
+    color: #561C1D !important;
+  }
+  
+  /* Dark mode for specific button types */
+  .tabcontent button[type="submit"] {
+    background-color: #28a745 !important;
+    color: white !important;
+  }
+  
+  .tabcontent button[type="submit"]:hover {
+    background-color: #218838 !important;
+  }
+  
+  /* Dark mode for delete buttons */
+  .tabcontent button[onclick*="confirm"] {
+    background-color: #dc3545 !important;
+    color: white !important;
+  }
+  
+  .tabcontent button[onclick*="confirm"]:hover {
+    background-color: #c82333 !important;
+  }
+  
+  /* Dark mode for all links in admin page */
+  .tabcontent a {
+    color: #C5A144;
+    text-decoration: underline;
+  }
+  
+  .tabcontent a:hover {
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for all headings in admin page */
+  .tabcontent h1, .tabcontent h2, .tabcontent h3, .tabcontent h4, .tabcontent h5, .tabcontent h6 {
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for all paragraphs in admin page */
+  .tabcontent p {
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for all lists in admin page */
+  .tabcontent ul, .tabcontent ol {
+    color: #e0e0e0;
+  }
+  
+  .tabcontent li {
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for all form actions */
+  .form-actions {
+    background-color: transparent;
+    border-top-color: #444;
+  }
+  
+  /* Dark mode for content management form */
+  .content-management-form {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border-color: #444;
+    padding: 15px;
+    border-radius: 5px;
+  }
+  
+  /* Dark mode for all textareas in admin page */
+  .tabcontent textarea {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  .tabcontent textarea:focus {
+    border-color: #C5A144;
+    box-shadow: 0 0 0 2px rgba(197, 161, 68, 0.2);
+  }
+  
+  /* Dark mode for all selects in admin page */
+  .tabcontent select {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  .tabcontent select:focus {
+    border-color: #C5A144;
+    box-shadow: 0 0 0 2px rgba(197, 161, 68, 0.2);
+  }
+  
+  /* Dark mode for all inputs in admin page */
+  .tabcontent input[type="text"],
+  .tabcontent input[type="password"],
+  .tabcontent input[type="time"],
+  .tabcontent input[type="file"] {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  .tabcontent input[type="text"]:focus,
+  .tabcontent input[type="password"]:focus,
+  .tabcontent input[type="time"]:focus,
+  .tabcontent input[type="file"]:focus {
+    border-color: #C5A144;
+    box-shadow: 0 0 0 2px rgba(197, 161, 68, 0.2);
+  }
+  
+  /* Dark mode for inline forms */
+  .inline-form {
+    background-color: transparent;
+    display: inline;
+  }
+  
+  /* Dark mode for all remaining elements */
+  .tabcontent * {
+    color: #e0e0e0;
+  }
+  
+  .tabcontent strong {
+    color: #C5A144;
+  }
+  
+  .tabcontent em {
+    color: #aaa;
+  }
+  
+  .tabcontent code {
+    background-color: #2a2a2a;
+    color: #C5A144;
+    border: 1px solid #444;
+  }
+  
+  /* Dark mode for any remaining containers */
+  .admin-dashboard,
+  .admin-page,
+  .admin-container {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for any remaining sections */
+  .section,
+  .container,
+  .box,
+  .panel,
+  .card {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border-color: #444;
+  }
+  
+  /* Dark mode for any remaining text elements */
+  .text,
+  .description,
+  .info,
+  .help {
+    color: #e0e0e0;
+  }
+  
+  /* Dark mode for any remaining interactive elements */
+  .interactive,
+  .clickable,
+  .actionable {
+    color: #C5A144;
+  }
+  
+  .interactive:hover,
+  .clickable:hover,
+  .actionable:hover {
+    color: #e0e0e0;
+  }
+  
+  /* Comprehensive dark mode for any remaining elements */
+  .admin-page *,
+  .admin-dashboard *,
+  .tabcontent *,
+  .admin-instructions *,
+  .content-section *,
+  .archive-section *,
+  .warning-box *,
+  .slot-entry *,
+  .meal-rule-item * {
+    color: #e0e0e0;
+  }
+  
+  /* Ensure all backgrounds are dark */
+  .admin-page,
+  .admin-dashboard,
+  .tabcontent,
+  .admin-instructions,
+  .content-section,
+  .archive-section,
+  .warning-box,
+  .slot-entry,
+  .meal-rule-item,
+  .subtab-content,
+  .reservations-subtabs,
+  .subtab-buttons,
+  .subtab-contents {
+    background-color: #1e1e1e !important;
+    color: #e0e0e0 !important;
+  }
+  
+  /* Ensure all borders are dark */
+  .admin-page,
+  .admin-dashboard,
+  .tabcontent,
+  .admin-instructions,
+  .content-section,
+  .archive-section,
+  .warning-box,
+  .slot-entry,
+  .meal-rule-item,
+  .subtab-content,
+  .reservations-subtabs,
+  .subtab-buttons,
+  .subtab-contents {
+    border-color: #444 !important;
+  }
 }
 
 /* Closed Banner Styles */
