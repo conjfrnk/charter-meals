@@ -4,7 +4,7 @@
 
 [Charter Meals](https://chartermeals.com) is a web application for managing meal sign-ups for the [Princeton Charter Club](https://charterclub.org). This project is built with Flask and includes many features, as detailed below:
 
-## 🚀 New in v2
+## New in v2
 
 ### Security & Performance Improvements
 - **Enhanced Input Validation**: All user inputs are now properly validated and sanitized
@@ -32,7 +32,7 @@
 - **Responsive Design:** The interface works well on both desktop and mobile devices.
 - **Security & Performance:** Built-in CSRF protection, rate limiting, and a strict Content Security Policy.
 
-## 🔒 Security Features
+## Security Features
 
 ### Authentication & Authorization
 - **Session Management**: 8-hour session timeout with automatic logout
@@ -144,7 +144,7 @@
 - **Performance:** The system uses caching for optimal performance
 - **Error Logs:** Check application logs for detailed error information
 
-## 🛠️ Installation & Deployment
+## Installation & Deployment
 
 ### Prerequisites
 - Python 3.8 or higher
@@ -215,7 +215,7 @@
 - **Storage:** 1GB free space for database and logs
 - **Network:** Internet access for external fonts and CDN resources
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -254,7 +254,7 @@ The application logs important events and errors. Check logs for:
 - **Cache Clearing:** System automatically clears cache during purge
 - **Log Rotation:** Implement log rotation for production deployments
 
-## 📋 Dependencies
+## Dependencies
 
 ### Core Dependencies
 - **Flask 2.3+**: Web framework
@@ -274,11 +274,11 @@ The application logs important events and errors. Check logs for:
 - Input validation and sanitization
 - Content Security Policy headers
 
-## 📄 License
+## License
 
 This project is proprietary software for the Princeton Charter Club.
 
-## 🤝 Contributing
+## Contributing
 
 For internal development and maintenance:
 1. Follow the existing code style
@@ -287,7 +287,7 @@ For internal development and maintenance:
 4. Test thoroughly before deployment
 5. Consider security implications of changes
 
-## 📞 Support
+## Support
 
 For technical support or questions:
 - Check the troubleshooting section above
