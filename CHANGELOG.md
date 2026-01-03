@@ -1,5 +1,27 @@
 # Changelog
 
+## [v2.0.2] - 2026-01-03
+
+### Security Fixes
+- **Admin Authorization Bypass**: Fixed critical vulnerability where any logged-in user could access the admin dashboard and create admin accounts. Both `/admin` and `/admin/add_admin` routes now properly require admin authentication via `@admin_required` decorator.
+- **Rate Limiting on User Login**: Added rate limiting (10 per minute) to the user login route to prevent brute-force attacks.
+- **Admin Password Validation**: Added proper input validation for password changes including minimum length (8 chars), maximum length (100 chars), and required field checks.
+- **Admin Username Validation**: Added validation for new admin usernames (alphanumeric, underscores, hyphens only; max 50 chars) and password requirements.
+- **Content Key Validation**: Added whitelist validation for content deletion to prevent manipulation of arbitrary database keys.
+
+### Bug Fixes
+- **Cache Invalidation for Settings**: Fixed stale reservation settings by invalidating `get_reservation_settings` cache after admin updates settings.
+- **Cache Invalidation for Website Content**: Fixed stale website content by invalidating `get_website_content` cache after content updates or deletions.
+- **Cache Invalidation for Next Week Meals**: Fixed cache invalidation to include next week's meal data, not just current week.
+- **Template Filter Error Handling**: Added try/except blocks to all template filters (`weekday`, `dayname`, `meal_time`, `display_date`) to gracefully handle malformed date strings instead of crashing.
+- **File Handle Leak in Backup**: Fixed file handle leak in `admin_backup_database` by using proper context manager and ensuring cleanup even on errors.
+- **Archive Download Error**: Added check for archive tables existence before attempting to download, preventing "no such table" errors.
+
+### Code Quality
+- **Removed Duplicate Imports**: Removed redundant `import re` statements inside `parse_schema()`, `get_create_statements()`, and `admin()` functions since `re` is already imported at module level.
+
+---
+
 ## [v2.0.1] - 2026-01-03
 
 ### Bug Fixes

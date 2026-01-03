@@ -165,8 +165,6 @@ def parse_schema():
     schema = {}
     with open("schema.sql", "r") as f:
         content = f.read()
-    import re
-
     pattern = re.compile(
         r"CREATE TABLE IF NOT EXISTS (\w+)\s*\((.*?)\);", re.DOTALL | re.IGNORECASE
     )
@@ -197,8 +195,6 @@ def get_create_statements():
     create_stmts = {}
     with open("schema.sql", "r") as f:
         content = f.read()
-    import re
-
     pattern = re.compile(
         r"(CREATE TABLE IF NOT EXISTS (\w+)\s*\(.*?\);)", re.DOTALL | re.IGNORECASE
     )
@@ -239,20 +235,26 @@ def migrate_db_command():
 # ---------------------------
 @app.template_filter("weekday")
 def weekday_filter(date_str):
-    d = datetime.strptime(date_str, "%Y-%m-%d").date()
-    return d.weekday()
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        return d.weekday()
+    except (ValueError, TypeError):
+        return 0
 
 
 @app.template_filter("dayname")
 def dayname_filter(date_str):
-    d = datetime.strptime(date_str, "%Y-%m-%d").date()
-    return d.strftime("%A")
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        return d.strftime("%A")
+    except (ValueError, TypeError):
+        return "Unknown"
 
 
 @app.template_filter("meal_time")
 def meal_time_filter(meal_type, date_str):
     """Return the meal time range for a given meal type and date.
-    For Monday–Friday:
+    For Monday-Friday:
       - Breakfast: 8-10
       - Lunch: 11:30-1:30
       - Dinner: 5:30-7:30
@@ -260,29 +262,35 @@ def meal_time_filter(meal_type, date_str):
       - Brunch: 11-1:30
       - Dinner: 5:30-7
     """
-    d = datetime.strptime(date_str, "%Y-%m-%d").date()
-    weekday = d.weekday()  # Monday=0 ... Sunday=6
-    meal_type_lower = meal_type.lower()
-    if weekday < 5:  # Weekday
-        if meal_type_lower == "breakfast":
-            return "8-10"
-        elif meal_type_lower == "lunch":
-            return "11:30-1:30"
-        elif meal_type_lower == "dinner":
-            return "5:30-7:30"
-    else:  # Weekend
-        if meal_type_lower == "brunch":
-            return "11-1:30"
-        elif meal_type_lower == "dinner":
-            return "5:30-7"
-    return ""
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        weekday = d.weekday()  # Monday=0 ... Sunday=6
+        meal_type_lower = (meal_type or "").lower()
+        if weekday < 5:  # Weekday
+            if meal_type_lower == "breakfast":
+                return "8-10"
+            elif meal_type_lower == "lunch":
+                return "11:30-1:30"
+            elif meal_type_lower == "dinner":
+                return "5:30-7:30"
+        else:  # Weekend
+            if meal_type_lower == "brunch":
+                return "11-1:30"
+            elif meal_type_lower == "dinner":
+                return "5:30-7"
+        return ""
+    except (ValueError, TypeError):
+        return ""
 
 
 @app.template_filter("display_date")
 def display_date_filter(date_str):
     """Return the date in the format: 'DayName, Mon DD' (no year)."""
-    d = datetime.strptime(date_str, "%Y-%m-%d").date()
-    return d.strftime("%A, %b %d")
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        return d.strftime("%A, %b %d")
+    except (ValueError, TypeError):
+        return "Unknown Date"
 
 
 # ---------------------------
@@ -483,12 +491,27 @@ def admin_logout():
 @admin_required
 def admin_change_password():
     if request.method == "POST":
-        current = request.form["current_password"].strip()
-        new_pass = request.form["new_password"].strip()
-        confirm = request.form["confirm_password"].strip()
+        current = request.form.get("current_password", "").strip()
+        new_pass = request.form.get("new_password", "").strip()
+        confirm = request.form.get("confirm_password", "").strip()
+        
+        # Input validation
+        if not current or not new_pass or not confirm:
+            flash("All password fields are required.", "danger")
+            return redirect(url_for("admin_change_password"))
+        
+        if len(new_pass) < 8:
+            flash("New password must be at least 8 characters.", "danger")
+            return redirect(url_for("admin_change_password"))
+        
+        if len(new_pass) > 100:
+            flash("Password is too long.", "danger")
+            return redirect(url_for("admin_change_password"))
+        
         if new_pass != confirm:
             flash("New passwords do not match.", "danger")
             return redirect(url_for("admin_change_password"))
+        
         db = get_db()
         cur = db.execute(
             "SELECT * FROM admins WHERE username = ?", (session["admin_username"],)
@@ -510,16 +533,26 @@ def admin_change_password():
 
 
 @app.route("/admin/add_admin", methods=["POST"])
+@admin_required
 def admin_add_admin():
-    # Allow any logged-in user to add admins
-    if not session.get("netid") and not session.get("admin_username"):
-        flash("You must be logged in to add admin accounts.", "danger")
-        return redirect(url_for("admin"))
-    
     username = request.form.get("new_admin_username", "").strip()
     password = request.form.get("new_admin_password", "").strip()
+    
+    # Input validation
     if not username or not password:
         flash("Username and password are required for new admin.", "danger")
+        return redirect(url_for("admin"))
+    
+    if len(username) > 50 or not re.match(r'^[a-zA-Z0-9_-]+$', username):
+        flash("Invalid username format. Use only letters, numbers, underscores, and hyphens.", "danger")
+        return redirect(url_for("admin"))
+    
+    if len(password) < 8:
+        flash("Password must be at least 8 characters.", "danger")
+        return redirect(url_for("admin"))
+    
+    if len(password) > 100:
+        flash("Password is too long.", "danger")
         return redirect(url_for("admin"))
     db = get_db()
     try:
@@ -638,11 +671,8 @@ def admin_download_all_meal_signups():
 # Admin Dashboard and Settings
 # ---------------------------
 @app.route("/admin", methods=["GET", "POST"])
+@admin_required
 def admin():
-    # Allow any logged-in user to access admin page (for adding admins)
-    if not session.get("netid") and not session.get("admin_username"):
-        flash("You must be logged in to access the admin page.", "danger")
-        return redirect(url_for("login"))
     db = get_db()
     
     # Handle POST requests for content management
@@ -677,6 +707,7 @@ def admin():
                     flash(f"Error updating {key}: {str(e)}", "danger")
         if updated_count > 0:
             db.commit()
+            cache.delete_memoized(get_website_content)
             flash(f"Successfully updated {updated_count} content items.", "success")
         else:
             flash("No content was updated.", "warning")
@@ -806,7 +837,6 @@ def admin():
         if content_key == 'meal_rules':
             # Remove <ul> and </ul> tags
             content = content.replace('<ul>', '').replace('</ul>', '')
-            import re
             # Use a more robust regex that captures everything between <li> and </li>
             rules = re.findall(r'<li>(.*?)</li>', content, flags=re.DOTALL)
             meal_rules_list = [rule.strip() for rule in rules if rule.strip()]
@@ -814,7 +844,6 @@ def admin():
             content = '\n'.join(meal_rules_list)
         else:
             # Convert HTML links back to markdown
-            import re
             content = re.sub(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', r'[\2](\1)', content)
             # Convert HTML bold back to markdown
             content = re.sub(r'<strong>([^<]+)</strong>', r'**\1**', content)
@@ -876,6 +905,7 @@ def admin_settings():
         ("reservation_close_time", close_time),
     )
     db.commit()
+    cache.delete_memoized(get_reservation_settings)
     flash("Settings updated.", "success")
     return redirect(url_for("admin"))
 
@@ -884,6 +914,7 @@ def admin_settings():
 # User Routes
 # ---------------------------
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
 def login():
     if request.method == "POST":
         netid = request.form.get("netid", "").strip().lower()
@@ -1336,9 +1367,12 @@ def reserve():
     # Invalidate caches after reservation changes
     cache.delete_memoized(get_slot_counts, next_monday, next_sunday)
     cache.delete_memoized(get_user_reservations, user_netid, next_monday, next_sunday)
-    # Use the newly defined current_week_start/current_week_end here:
+    # Invalidate for both current week and next week
     cache.delete_memoized(
         get_user_current_meals, user_netid, current_week_start, current_week_end
+    )
+    cache.delete_memoized(
+        get_user_current_meals, user_netid, next_monday, next_sunday
     )
     cache.delete_memoized(
         check_user_has_pub_current, user_netid, current_week_start, current_week_end
@@ -1627,14 +1661,25 @@ def parse_markdown(text, content_key=None):
 @app.route("/admin/delete_content/<content_key>", methods=["POST"])
 @admin_required
 def admin_delete_content(content_key):
+    # Validate content_key against allowed keys
+    allowed_keys = [
+        'welcome_header', 'welcome_message', 'contact_info',
+        'meal_rules_title', 'meal_rules', 'feedback_link', 'feedback_text'
+    ]
+    if content_key not in allowed_keys:
+        flash("Invalid content key.", "danger")
+        return redirect(url_for("admin"))
+    
     db = get_db()
     try:
         db.execute("DELETE FROM website_content WHERE content_key = ?", (content_key,))
         db.commit()
+        cache.delete_memoized(get_website_content)
         flash("Content deleted successfully.", "success")
     except Exception as e:
-        flash(f"Error deleting content: {str(e)}", "danger")
-    return redirect(url_for("admin_content"))
+        logging.error(f"Error deleting content {content_key}: {e}")
+        flash("An error occurred while deleting content.", "danger")
+    return redirect(url_for("admin"))
 
 
 # ---------------------------
@@ -1718,9 +1763,11 @@ def admin_download_archive():
     db = get_db()
     
     try:
-        import csv
-        import io
-        from datetime import datetime
+        # Check if archive tables exist
+        cur = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='archived_users'")
+        if not cur.fetchone():
+            flash("No archived data found. Run a purge first to create archives.", "warning")
+            return redirect(url_for("admin"))
         
         # Create a string buffer to hold the CSV data
         output = io.StringIO()
@@ -1759,7 +1806,6 @@ def admin_download_archive():
         output.close()
         
         # Create response with CSV data
-        from flask import Response
         response = Response(csv_data, mimetype='text/csv')
         response.headers['Content-Disposition'] = f'attachment; filename=charter_meals_archive_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
         
@@ -1792,7 +1838,6 @@ def admin_backup_database():
     """Create a backup of the current database."""
     try:
         import shutil
-        from datetime import datetime
         
         # Create backup filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1801,19 +1846,24 @@ def admin_backup_database():
         # Copy database file
         shutil.copy2(app.config["DATABASE"], backup_filename)
         
-        # Create response with backup file
-        response = Response(open(backup_filename, 'rb').read(), mimetype='application/octet-stream')
-        response.headers['Content-Disposition'] = f'attachment; filename={backup_filename}'
+        # Read file contents with proper context manager
+        try:
+            with open(backup_filename, 'rb') as f:
+                data = f.read()
+        finally:
+            # Clean up backup file
+            if os.path.exists(backup_filename):
+                os.remove(backup_filename)
         
-        # Clean up backup file after sending
-        import os
-        os.remove(backup_filename)
+        # Create response with backup data
+        response = Response(data, mimetype='application/octet-stream')
+        response.headers['Content-Disposition'] = f'attachment; filename={backup_filename}'
         
         return response
         
     except Exception as e:
         logging.error(f"Database backup failed: {e}")
-        flash(f"Error creating backup: {str(e)}", "danger")
+        flash("An error occurred while creating backup.", "danger")
         return redirect(url_for("admin"))
 
 
@@ -1860,7 +1910,7 @@ def health_check():
         
         return jsonify({
             "status": "healthy",
-            "version": "2.0.1",
+            "version": "2.0.2",
             "database": "ok",
             "cache": cache_status,
             "timestamp": datetime.now().isoformat()
@@ -1869,7 +1919,7 @@ def health_check():
         logging.error(f"Health check failed: {e}")
         return jsonify({
             "status": "unhealthy",
-            "version": "2.0.1",
+            "version": "2.0.2",
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }), 500
