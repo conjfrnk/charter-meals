@@ -1,5 +1,26 @@
 # Changelog
 
+## [v2.0.1] - 2026-01-03
+
+### Bug Fixes
+- **zstandard ImportError on OpenBSD**: Fixed server crash caused by `zstandard` C extension compiled for Linux (glibc) being incompatible with OpenBSD's libc. The error manifested as `undefined symbol '__sF'` when importing `flask_compress`.
+
+### Resolution
+The `zstandard` package (a dependency of `flask_compress`) ships pre-compiled wheels for Linux that are incompatible with OpenBSD. To fix:
+
+```bash
+cd /var/www/htdocs/www.chartermeals.com
+source charter_env/bin/activate
+pip install --no-binary :all: zstandard
+doas rcctl restart gunicorn_charter
+```
+
+This forces pip to compile `zstandard` from source using the local C compiler, producing a binary compatible with OpenBSD.
+
+**Note**: After any Python version upgrade or virtualenv rebuild on OpenBSD, you may need to reinstall `zstandard` with `--no-binary :all:` again.
+
+---
+
 ## [v2] - 2024-01-XX
 
 ### Bug Fixes
