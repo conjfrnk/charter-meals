@@ -748,13 +748,14 @@ def admin_download_meal_signups_week(week_start):
     output.close()
     # Sanitize filename - week_start is already validated as YYYY-MM-DD format
     safe_filename = f"meal_signups_{week_start_date.strftime('%Y-%m-%d')}.csv"
-    return Response(
+    response = Response(
         csv_content,
         mimetype="text/csv",
-        headers={
-            "Content-Disposition": f"attachment; filename={safe_filename}"
-        },
     )
+    response.headers["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+    return response
 
 
 @app.route("/admin/download_all_meal_signups")
@@ -781,11 +782,14 @@ def admin_download_all_meal_signups():
         writer.writerow([row["date"], row["meal_type"], name])
     csv_content = output.getvalue()
     output.close()
-    return Response(
+    response = Response(
         csv_content,
         mimetype="text/csv",
-        headers={"Content-disposition": "attachment; filename=meal_signups_all.csv"},
     )
+    response.headers["Content-Disposition"] = 'attachment; filename="meal_signups_all.csv"'
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+    return response
 
 
 # ---------------------------
@@ -808,14 +812,15 @@ def admin():
                 # Try to get the list of rules from the form
                 rules_list = request.form.getlist('content_value_meal_rules_list[]')
                 if rules_list:
-                    # Remove empty rules and strip whitespace
-                    rules_list = [r.strip() for r in rules_list if r.strip()]
+                    # Remove empty rules, strip whitespace, and limit to 50 rules max
+                    rules_list = [r.strip()[:500] for r in rules_list[:50] if r.strip()]
                     content_value = '\n'.join(rules_list)
                 else:
-                    # Fallback to textarea
-                    content_value = request.form.get(f"content_value_{key}", "").strip()
+                    # Fallback to textarea with length limit
+                    content_value = request.form.get(f"content_value_{key}", "").strip()[:10000]
             else:
-                content_value = request.form.get(f"content_value_{key}", "").strip()
+                # Limit content length to prevent DoS
+                content_value = request.form.get(f"content_value_{key}", "").strip()[:5000]
             if content_value:
                 try:
                     html_content = parse_markdown(content_value, key)
@@ -1499,36 +1504,28 @@ def reserve():
             return redirect(url_for("index"))
     for slot_id in to_add:
         try:
-            # Use IMMEDIATE transaction to prevent race conditions (TOCTOU)
-            # The database trigger will also enforce capacity, but we check here for better UX
-            db.execute("BEGIN IMMEDIATE")
-            try:
-                cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
-                meal_slot = cur.fetchone()
-                if not meal_slot:
-                    db.execute("ROLLBACK")
-                    flash("Meal slot not found.", "danger")
-                    return redirect(url_for("index"))
-                cur = db.execute(
-                    "SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?",
-                    (slot_id,),
+            # Use a single atomic operation with the trigger enforcing capacity
+            # The database trigger will enforce capacity and raise an error if full
+            cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
+            meal_slot = cur.fetchone()
+            if not meal_slot:
+                flash("Meal slot not found.", "danger")
+                return redirect(url_for("index"))
+            cur = db.execute(
+                "SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?",
+                (slot_id,),
+            )
+            count = cur.fetchone()["count"]
+            if count >= meal_slot["capacity"]:
+                flash(
+                    f"{meal_slot['meal_type'].capitalize()} on {meal_slot['date']} is already full.",
+                    "danger",
                 )
-                count = cur.fetchone()["count"]
-                if count >= meal_slot["capacity"]:
-                    db.execute("ROLLBACK")
-                    flash(
-                        f"{meal_slot['meal_type'].capitalize()} on {meal_slot['date']} is already full.",
-                        "danger",
-                    )
-                    return redirect(url_for("index"))
-                db.execute(
-                    "INSERT INTO reservations (netid, meal_slot_id, timestamp) VALUES (?, ?, ?)",
-                    (user_netid, slot_id, server_timestamp),
-                )
-                db.execute("COMMIT")
-            except Exception as inner_e:
-                db.execute("ROLLBACK")
-                raise inner_e
+                return redirect(url_for("index"))
+            db.execute(
+                "INSERT INTO reservations (netid, meal_slot_id, timestamp) VALUES (?, ?, ?)",
+                (user_netid, slot_id, server_timestamp),
+            )
         except sqlite3.IntegrityError as e:
             # Handle case where slot became full between check and insert (trigger fired)
             if "full" in str(e).lower():
@@ -2195,9 +2192,12 @@ def admin_download_archive():
         csv_data = output.getvalue()
         output.close()
         
-        # Create response with CSV data
+        # Create response with CSV data and security headers
+        safe_filename = f'charter_meals_archive_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
         response = Response(csv_data, mimetype='text/csv')
-        response.headers['Content-Disposition'] = f'attachment; filename=charter_meals_archive_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        response.headers['Content-Disposition'] = f'attachment; filename="{safe_filename}"'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
         
         return response
         
@@ -2251,9 +2251,11 @@ def admin_backup_database():
         with open(backup_filename, 'rb') as f:
             data = f.read()
         
-        # Create response with backup data
+        # Create response with backup data and security headers
         response = Response(data, mimetype='application/octet-stream')
-        response.headers['Content-Disposition'] = f'attachment; filename={display_filename}'
+        response.headers['Content-Disposition'] = f'attachment; filename="{display_filename}"'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
         
         logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' downloaded database backup")
         return response
@@ -2286,10 +2288,21 @@ def get_website_content():
 def unauthorized(error):
     return redirect(url_for("admin_login"))
 
+@app.errorhandler(403)
+def forbidden(error):
+    flash("Access forbidden.", "danger")
+    return redirect(url_for("login"))
+
 @app.errorhandler(404)
 def not_found(error):
     flash("Page not found.", "danger")
     return redirect(url_for("index"))
+
+@app.errorhandler(429)
+def ratelimit_handler(error):
+    logging.warning(f"Rate limit exceeded from {get_remote_address()}")
+    flash("Too many requests. Please try again later.", "danger")
+    return redirect(url_for("login"))
 
 @app.errorhandler(500)
 def internal_error(error):

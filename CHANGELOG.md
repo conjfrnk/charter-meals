@@ -1,5 +1,28 @@
 # Changelog
 
+## [v2.0.10] - 2026-01-04
+
+### Security Fixes
+- **Simplified Transaction Handling in Reserve Route**: Removed unnecessary nested transaction (BEGIN IMMEDIATE/COMMIT/ROLLBACK) in `/reserve` endpoint. The database trigger already enforces capacity atomically, and the nested transaction was causing issues. Now uses simpler single-commit pattern with trigger enforcement.
+- **Content-Disposition Header Hardening**: Fixed potential header injection vulnerabilities in CSV/file downloads by:
+  - Wrapping filenames in double quotes in Content-Disposition header
+  - Adding `X-Content-Type-Options: nosniff` header to all download responses
+  - Adding `Cache-Control: no-store, no-cache, must-revalidate, private` to prevent caching of sensitive exports
+- **Content Length Limits**: Added content length limits to admin content management to prevent DoS:
+  - Meal rules: Max 50 rules, 500 chars each
+  - Other content: Max 5000 chars per field
+  - Meal rules textarea fallback: Max 10000 chars
+
+### New Features
+- **403 Forbidden Error Handler**: Added proper error handler for 403 Forbidden responses.
+- **429 Rate Limit Error Handler**: Added error handler for rate limit exceeded (429) responses with security logging.
+
+### Code Quality
+- Improved consistency of security headers across all download endpoints (CSV exports, database backup, archive download).
+- Better error handling for rate-limited requests with user-friendly redirect.
+
+---
+
 ## [v2.0.9] - 2026-01-03
 
 ### Security Fixes
