@@ -1,5 +1,38 @@
 # Changelog
 
+## [v2.0.9] - 2026-01-03
+
+### Security Fixes
+- **Race Condition in Reservation (TOCTOU)**: Fixed time-of-check to time-of-use race condition in `/reserve` endpoint by using SQLite IMMEDIATE transactions. The capacity check and insert now happen atomically, preventing multiple users from simultaneously reserving the last slot.
+- **Rate Limiting Coverage**: Added missing rate limiting to several endpoints:
+  - `/logout`: 10 per minute
+  - `/admin/logout`: 10 per minute
+  - `/admin/download_archive`: 10 per minute
+  - `/admin/backup_database`: 5 per minute
+- **Information Disclosure Prevention**: Removed exception details from flash messages that could leak sensitive information:
+  - Content update errors
+  - Purge errors
+  - Archive generation errors
+  - Archive clearing errors
+  - Reservation deletion errors
+  - Database commit failures
+- **File Upload Validation**: Added `validate_csv_upload()` helper function to validate uploaded files:
+  - Validates file extension (.csv, .txt only)
+  - Checks for path traversal attempts in filename
+  - Validates filename is not empty
+- **500 Error Handler Hardening**: Improved 500 error handler to clear session state and redirect to login page, preventing session corruption.
+
+### Bug Fixes
+- **Duplicate Logging Statement**: Removed duplicate `logging.error()` call in reservation deletion error handling.
+- **Admin Account Flash Message**: Removed username echo from admin account creation success message to prevent XSS.
+
+### Code Quality
+- Improved error messages to be user-friendly without exposing internal details.
+- All exception details are now logged server-side only.
+- Consistent error handling pattern across all admin routes.
+
+---
+
 ## [v2.0.8] - 2026-01-03
 
 ### Security Fixes

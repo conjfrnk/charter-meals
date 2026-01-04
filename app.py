@@ -411,6 +411,33 @@ def is_pub_slot(meal_slot):
     return meal_slot["meal_type"].lower() == "dinner" and slot_date.weekday() in [1, 3]
 
 
+def validate_csv_upload(file_obj):
+    """Validate uploaded CSV file for security.
+    
+    Returns:
+        tuple: (is_valid: bool, error_message: str or None)
+    """
+    if not file_obj:
+        return False, "No file provided."
+    
+    # Check filename extension
+    filename = file_obj.filename or ""
+    if not filename:
+        return False, "No filename provided."
+    
+    # Sanitize and validate filename
+    allowed_extensions = {'.csv', '.txt'}
+    ext = os.path.splitext(filename.lower())[1]
+    if ext not in allowed_extensions:
+        return False, "Invalid file type. Only .csv and .txt files are allowed."
+    
+    # Check for path traversal attempts in filename
+    if '..' in filename or '/' in filename or '\\' in filename:
+        return False, "Invalid filename."
+    
+    return True, None
+
+
 # ---------------------------
 # Updated Decorators
 # ---------------------------
@@ -548,6 +575,7 @@ def admin_login():
 
 @app.route("/admin/logout")
 @admin_required
+@limiter.limit("10 per minute")
 def admin_logout():
     admin_user = session.get("admin_username", "unknown")
     session.clear()
@@ -633,7 +661,7 @@ def admin_add_admin():
         )
         db.commit()
         logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' created new admin account '{username}'")
-        flash(f"Admin account '{username}' created successfully.", "success")
+        flash("Admin account created successfully.", "success")
     except sqlite3.IntegrityError:
         flash("Admin account already exists.", "warning")
     return redirect(url_for("admin"))
@@ -797,7 +825,8 @@ def admin():
                     )
                     updated_count += 1
                 except Exception as e:
-                    flash(f"Error updating {key}: {str(e)}", "danger")
+                    logging.error(f"Error updating content '{key}': {e}")
+                    flash("Error updating content. Please try again.", "danger")
         if updated_count > 0:
             db.commit()
             cache.delete_memoized(get_website_content)
@@ -1084,6 +1113,7 @@ def guest_login():
 
 @app.route("/logout")
 @login_required
+@limiter.limit("10 per minute")
 def logout():
     user_netid = session.get("netid", "unknown")
     session.clear()
@@ -1465,40 +1495,58 @@ def reserve():
             )
         except Exception as e:
             logging.error(f"Error deleting reservation for slot {slot_id}: {e}")
-            flash(f"Error deleting reservation for slot {slot_id}: {str(e)}", "danger")
+            flash("Error deleting reservation. Please try again.", "danger")
             return redirect(url_for("index"))
     for slot_id in to_add:
         try:
-            cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
-            meal_slot = cur.fetchone()
-            if not meal_slot:
-                flash(f"Meal slot {slot_id} not found.", "danger")
-                return redirect(url_for("index"))
-            cur = db.execute(
-                "SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?",
-                (slot_id,),
-            )
-            count = cur.fetchone()["count"]
-            if count >= meal_slot["capacity"]:
-                flash(
-                    f"{meal_slot['meal_type'].capitalize()} on {meal_slot['date']} is already full.",
-                    "danger",
+            # Use IMMEDIATE transaction to prevent race conditions (TOCTOU)
+            # The database trigger will also enforce capacity, but we check here for better UX
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
+                meal_slot = cur.fetchone()
+                if not meal_slot:
+                    db.execute("ROLLBACK")
+                    flash("Meal slot not found.", "danger")
+                    return redirect(url_for("index"))
+                cur = db.execute(
+                    "SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?",
+                    (slot_id,),
                 )
-                return redirect(url_for("index"))
-            db.execute(
-                "INSERT INTO reservations (netid, meal_slot_id, timestamp) VALUES (?, ?, ?)",
-                (user_netid, slot_id, server_timestamp),
-            )
+                count = cur.fetchone()["count"]
+                if count >= meal_slot["capacity"]:
+                    db.execute("ROLLBACK")
+                    flash(
+                        f"{meal_slot['meal_type'].capitalize()} on {meal_slot['date']} is already full.",
+                        "danger",
+                    )
+                    return redirect(url_for("index"))
+                db.execute(
+                    "INSERT INTO reservations (netid, meal_slot_id, timestamp) VALUES (?, ?, ?)",
+                    (user_netid, slot_id, server_timestamp),
+                )
+                db.execute("COMMIT")
+            except Exception as inner_e:
+                db.execute("ROLLBACK")
+                raise inner_e
+        except sqlite3.IntegrityError as e:
+            # Handle case where slot became full between check and insert (trigger fired)
+            if "full" in str(e).lower():
+                flash("The meal slot became full. Please try again.", "danger")
+            else:
+                logging.error(f"Integrity error adding reservation for slot {slot_id}: {e}")
+                flash("Error adding reservation. Please try again.", "danger")
+            return redirect(url_for("index"))
         except Exception as e:
             logging.error(f"Error adding reservation for slot {slot_id}: {e}")
-            flash(f"Error adding reservation for slot {slot_id}: {str(e)}", "danger")
+            flash("Error adding reservation. Please try again.", "danger")
             return redirect(url_for("index"))
     try:
         db.commit()
     except Exception as e:
         db.rollback()
-        logging.error("Database commit failed: " + str(e))
-        flash("Database commit failed: " + str(e), "danger")
+        logging.error(f"Database commit failed: {e}")
+        flash("Error saving reservations. Please try again.", "danger")
         return redirect(url_for("index"))
     flash("Reservations updated successfully.", "success")
 
@@ -1544,6 +1592,13 @@ def admin_upload_emails():
     db = get_db()
     if "emails_file" in request.files:
         f = request.files["emails_file"]
+        
+        # Validate file type and filename
+        is_valid, error_msg = validate_csv_upload(f)
+        if not is_valid and error_msg:
+            flash(error_msg, "danger")
+            return redirect(url_for("admin"))
+        
         if f:
             try:
                 # Check file size before reading
@@ -1640,7 +1695,7 @@ def admin_add_user():
     
     if not valid_netids:
         if invalid_netids:
-            flash(f"Invalid NetID format: {', '.join(invalid_netids)}", "danger")
+            flash(f"Invalid NetID format: {len(invalid_netids)} netid(s) skipped.", "danger")
         else:
             flash("No netid provided.", "danger")
         return redirect(url_for("admin"))
@@ -1715,6 +1770,13 @@ def admin_bulk_delete_users():
     db = get_db()
     if "delete_netids_file" in request.files:
         f = request.files["delete_netids_file"]
+        
+        # Validate file type and filename
+        is_valid, error_msg = validate_csv_upload(f)
+        if not is_valid and error_msg:
+            flash(error_msg, "danger")
+            return redirect(url_for("admin"))
+        
         if f:
             try:
                 # Check file size before reading
@@ -2078,13 +2140,14 @@ def admin_purge():
         flash("All users, reservations, and meal slots have been archived and purged. The system is ready for a new semester.", "success")
     except Exception as e:
         logging.error(f"Purge failed: {e}")
-        flash(f"Error during purge: {str(e)}", "danger")
+        flash("Error during purge. Please try again.", "danger")
     
     return redirect(url_for("admin"))
 
 
 @app.route("/admin/download_archive")
 @admin_required
+@limiter.limit("10 per minute")
 def admin_download_archive():
     """Download an archive file containing all archived data."""
     db = get_db()
@@ -2139,7 +2202,8 @@ def admin_download_archive():
         return response
         
     except Exception as e:
-        flash(f"Error generating archive: {str(e)}", "danger")
+        logging.error(f"Error generating archive: {e}")
+        flash("Error generating archive. Please try again.", "danger")
         return redirect(url_for("admin"))
 
 
@@ -2158,12 +2222,13 @@ def admin_clear_archive():
         flash("All archived data has been cleared.", "success")
     except Exception as e:
         logging.error(f"Error clearing archive: {e}")
-        flash(f"Error clearing archive: {str(e)}", "danger")
+        flash("Error clearing archive. Please try again.", "danger")
     
     return redirect(url_for("admin"))
 
 @app.route("/admin/backup_database")
 @admin_required
+@limiter.limit("5 per minute")
 def admin_backup_database():
     """Create a backup of the current database."""
     import shutil
@@ -2228,9 +2293,15 @@ def not_found(error):
 
 @app.errorhandler(500)
 def internal_error(error):
+    # Log the actual error internally but don't expose details to users
     logging.error(f"Internal server error: {error}")
+    # Clear any potentially corrupted session state
+    try:
+        session.clear()
+    except Exception:
+        pass
     flash("An internal server error occurred. Please try again later.", "danger")
-    return redirect(url_for("index"))
+    return redirect(url_for("login"))
 
 @app.route("/health")
 @limiter.limit("60 per minute")
