@@ -5,7 +5,7 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="netid" class="mobile-hide">NetID:</label>
   <!-- Removed restrictive pattern attribute -->
-  <input type="text" name="netid" id="netid" placeholder="NetID" required autocomplete="username">
+  <input type="text" name="netid" id="netid" placeholder="NetID" required autocomplete="username" maxlength="20">
   <button type="submit">Login</button>
 </form>
 <br>

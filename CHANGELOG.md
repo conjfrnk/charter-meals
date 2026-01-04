@@ -1,5 +1,37 @@
 # Changelog
 
+## [v2.0.7] - 2026-01-03
+
+### Security Fixes
+- **XSS Prevention in Index Template**: Added explicit `|e` (escape) filter to `website_content` variables in index.html that were being rendered without proper HTML escaping, preventing potential XSS attacks through admin-controlled content.
+- **Rate Limiting on Admin User Add**: Added missing `@limiter.limit("30 per minute")` decorator to `/admin/add_user` endpoint to prevent brute-force user creation attacks.
+- **User Session Validation**: Enhanced `login_required` decorator to validate that the user still exists in the database on each request, preventing access by deleted users with valid session cookies.
+- **Guest Login Security Logging**: Added security logging for guest login attempts with IP address for audit trail.
+- **Schema Parser Robustness**: Improved `parse_schema()` and `get_create_statements()` functions to:
+  - Use absolute path via `os.path.dirname(__file__)` for schema.sql location
+  - Handle `FileNotFoundError` and other exceptions gracefully
+  - Skip `PRIMARY KEY` constraints in addition to existing skipped keywords
+- **Admin Reservation User Validation**: Added validation in `/admin/add_reservation` to check if user exists before creating reservation, preventing orphaned reservations and providing better feedback.
+
+### Bug Fixes
+- **Purge Cache Reset**: Added reset of `last_slot_generation` global variable during database purge to ensure fresh meal slot generation after a new semester starts.
+- **Consistent ID Limits**: Standardized `MAX_SLOT_ID` validation to 10 million across reserve and delete endpoints for consistency.
+
+### UI Improvements
+- **Client-side Input Validation**: Added `maxlength` and `minlength` attributes to form inputs:
+  - Login netid input: maxlength=20
+  - Admin login username: maxlength=50
+  - Admin login password: maxlength=100
+  - Admin password change fields: maxlength=100, minlength=8
+  - New admin username: maxlength=50
+  - New admin password: maxlength=100, minlength=8
+
+### Code Quality
+- Improved error handling in schema parsing functions with proper logging.
+- Better feedback messages for admin reservation operations (shows count of users not found).
+
+---
+
 ## [v2.0.6] - 2026-01-03
 
 ### Security Fixes

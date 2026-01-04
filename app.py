@@ -165,8 +165,17 @@ def init_db_command():
 # --- Dynamic Migration Command (with inline comment stripping) ---
 def parse_schema():
     schema = {}
-    with open("schema.sql", "r") as f:
-        content = f.read()
+    schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+    try:
+        with open(schema_path, "r") as f:
+            content = f.read()
+    except FileNotFoundError:
+        logging.error("schema.sql file not found")
+        return schema
+    except Exception as e:
+        logging.error(f"Error reading schema.sql: {e}")
+        return schema
+    
     pattern = re.compile(
         r"CREATE TABLE IF NOT EXISTS (\w+)\s*\((.*?)\);", re.DOTALL | re.IGNORECASE
     )
@@ -182,6 +191,7 @@ def parse_schema():
                 line.upper().startswith("UNIQUE")
                 or line.upper().startswith("FOREIGN")
                 or line.upper().startswith("CONSTRAINT")
+                or line.upper().startswith("PRIMARY KEY")
             ):
                 continue
             m = re.match(r"(\w+)\s+(.+)", line)
@@ -195,8 +205,17 @@ def parse_schema():
 
 def get_create_statements():
     create_stmts = {}
-    with open("schema.sql", "r") as f:
-        content = f.read()
+    schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+    try:
+        with open(schema_path, "r") as f:
+            content = f.read()
+    except FileNotFoundError:
+        logging.error("schema.sql file not found")
+        return create_stmts
+    except Exception as e:
+        logging.error(f"Error reading schema.sql: {e}")
+        return create_stmts
+    
     pattern = re.compile(
         r"(CREATE TABLE IF NOT EXISTS (\w+)\s*\(.*?\);)", re.DOTALL | re.IGNORECASE
     )
@@ -415,6 +434,19 @@ def login_required(view):
     def wrapped_view(**kwargs):
         if "netid" not in session:
             return redirect(url_for("login"))
+        # Validate user still exists in database (except for guest)
+        netid = session.get("netid")
+        if netid and netid != "guest":
+            try:
+                db = get_db()
+                cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
+                if cur.fetchone() is None:
+                    session.clear()
+                    flash("Your account no longer exists. Please contact the administrator.", "danger")
+                    return redirect(url_for("login"))
+            except Exception as e:
+                logging.error(f"Error validating user session: {e}")
+                # Allow request to proceed if DB check fails to avoid blocking legitimate users
         return view(**kwargs)
 
     return wrapped_view
@@ -1044,6 +1076,7 @@ def guest_login():
     session.clear()
     session["netid"] = "guest"
     session["user_login_time"] = datetime.now().isoformat()
+    logging.info(f"Security: Guest login from {get_remote_address()}")
     flash("Logged in as guest.", "info")
     return redirect(url_for("index"))
 
@@ -1334,8 +1367,8 @@ def reserve():
         return redirect(url_for("index"))
     
     # Validate slot IDs are integers within reasonable bounds
-    # Maximum slot ID is 2^31-1 (SQLite INTEGER max), but we use a more conservative limit
-    MAX_SLOT_ID = 1000000  # 1 million slots should be more than enough
+    # Maximum slot ID is 2^31-1 (SQLite INTEGER max), but we use a conservative limit
+    MAX_SLOT_ID = 10000000  # 10 million - consistent with other ID limits
     selected_slots = set()
     for slot_id in selected_slots_raw:
         try:
@@ -1588,6 +1621,7 @@ def admin_upload_emails():
 
 @app.route("/admin/add_user", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def admin_add_user():
     db = get_db()
     netids_str = request.form.get("new_netid", "")
@@ -1788,10 +1822,16 @@ def admin_add_reservation():
         
         added = []
         skipped = []
+        not_found = []
         server_timestamp = datetime.now(ZoneInfo("America/New_York")).isoformat()
         
         # ADMIN OVERRIDE: Do not check for capacity here. This allows manual overfilling.
         for netid in netids:
+            # Check if user exists before adding reservation
+            cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
+            if cur.fetchone() is None:
+                not_found.append(netid)
+                continue
             try:
                 db.execute(
                     "INSERT INTO reservations (netid, meal_slot_id, timestamp, added_by) VALUES (?, ?, ?, ?)",
@@ -1815,10 +1855,12 @@ def admin_add_reservation():
             cache.delete_memoized(get_manual_pub_info, netid, week_start, week_end)
         
         # Use counts to avoid reflecting user input in flash messages
-        flash(
-            f"Added {len(added)} reservation(s). Skipped {len(skipped)} (already exist).",
-            "success",
-        )
+        msg = f"Added {len(added)} reservation(s)."
+        if skipped:
+            msg += f" Skipped {len(skipped)} (already exist)."
+        if not_found:
+            msg += f" User not found: {len(not_found)}."
+        flash(msg, "success" if added else "warning")
         
     except Exception as e:
         logging.error(f"Error adding reservation: {e}")
@@ -2021,8 +2063,10 @@ def admin_purge():
         # Delete all meal slots
         db.execute("DELETE FROM meal_slots")
         
-        # Clear cache
+        # Clear cache and reset slot generation timestamp
         cache.clear()
+        global last_slot_generation
+        last_slot_generation = None
         
         db.commit()
         logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' performed database purge - all users, reservations, and meal slots archived and deleted")
