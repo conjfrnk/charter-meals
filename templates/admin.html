@@ -180,8 +180,8 @@
     <p><em>Any logged-in user can add new admin accounts, but only the primary admin can remove them.</em></p>
     <form method="POST" action="{{ url_for('admin_add_admin') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="text" name="new_admin_username" placeholder="New admin username" required>
-      <input type="password" id="new_admin_password" name="new_admin_password" placeholder="New admin password" required>
+      <input type="text" name="new_admin_username" placeholder="New admin username" required autocomplete="off">
+      <input type="password" id="new_admin_password" name="new_admin_password" placeholder="New admin password" required autocomplete="new-password">
       <button type="button" class="toggle-password" data-target="new_admin_password">Show Password</button>
       <button type="submit">Add Admin</button>
     </form>

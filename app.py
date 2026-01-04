@@ -209,21 +209,39 @@ def get_create_statements():
 @app.cli.command("migrate-db")
 def migrate_db_command():
     """Migrate the database schema to match schema.sql without losing data."""
+    # Whitelist of allowed table names to prevent SQL injection
+    ALLOWED_TABLES = {
+        'users', 'meal_slots', 'reservations', 'admins', 'settings',
+        'website_content', 'archived_users', 'archived_meal_slots', 'archived_reservations'
+    }
+    # Whitelist of allowed column name patterns
+    COLUMN_NAME_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+    
     db = get_db()
     cur = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
     existing_tables = {row["name"] for row in cur.fetchall()}
     create_stmts = get_create_statements()
     parsed_schema = parse_schema()
     for table, create_stmt in create_stmts.items():
+        # Validate table name against whitelist
+        if table not in ALLOWED_TABLES:
+            print(f"Skipping unknown table '{table}' (not in whitelist).")
+            continue
         if table not in existing_tables:
             db.execute(create_stmt)
             print(f"Created missing table '{table}'.")
         else:
+            # Use parameterized approach by validating table name first
             cur = db.execute(f"PRAGMA table_info({table})")
             existing_columns = {row["name"] for row in cur.fetchall()}
             for col, col_def in parsed_schema.get(table, []):
+                # Validate column name format
+                if not COLUMN_NAME_PATTERN.match(col):
+                    print(f"Skipping invalid column name '{col}' in table '{table}'.")
+                    continue
                 if col not in existing_columns:
                     try:
+                        # Table and column names are now validated
                         db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
                         print(f"Added missing column '{col}' to table '{table}'.")
                     except Exception as e:
@@ -406,20 +424,22 @@ def login_required(view):
 # Enforce Admin Login on All Admin Routes
 # ---------------------------
 def validate_session():
-    """Validate session timeout and security."""
+    """Validate session timeout and security. Returns tuple (valid, redirect_url)."""
     if session.get("admin_username"):
         login_time_str = session.get("admin_login_time")
         if login_time_str:
             try:
                 login_time = datetime.fromisoformat(login_time_str)
                 if datetime.now() - login_time > timedelta(hours=8):
+                    admin_user = session.get("admin_username", "unknown")
+                    logging.info(f"Security: Admin '{admin_user}' session expired")
                     session.clear()
                     flash("Session expired. Please log in again.", "danger")
-                    return False
+                    return (False, "admin_login")
             except (ValueError, TypeError):
                 session.clear()
                 flash("Invalid session. Please log in again.", "danger")
-                return False
+                return (False, "admin_login")
     
     if session.get("netid"):
         login_time_str = session.get("user_login_time")
@@ -429,19 +449,20 @@ def validate_session():
                 if datetime.now() - login_time > timedelta(hours=8):
                     session.clear()
                     flash("Session expired. Please log in again.", "danger")
-                    return False
+                    return (False, "login")
             except (ValueError, TypeError):
                 session.clear()
                 flash("Invalid session. Please log in again.", "danger")
-                return False
+                return (False, "login")
     
-    return True
+    return (True, None)
 
 @app.before_request
 def require_admin_for_admin_routes():
     # Validate session first
-    if not validate_session():
-        return redirect(url_for("login"))
+    valid, redirect_endpoint = validate_session()
+    if not valid and redirect_endpoint:
+        return redirect(url_for(redirect_endpoint))
     
     # If the request path starts with /admin and the endpoint is not "admin_login",
     # ensure an admin is logged in.
@@ -478,10 +499,12 @@ def admin_login():
                 session.clear()
                 session["admin_username"] = username
                 session["admin_login_time"] = datetime.now().isoformat()
+                logging.info(f"Security: Admin '{username}' logged in successfully from {get_remote_address()}")
                 flash("Admin logged in successfully.", "success")
                 return redirect(url_for("admin"))
             else:
                 # Use generic error message to prevent username enumeration
+                logging.warning(f"Security: Failed admin login attempt for username '{username}' from {get_remote_address()}")
                 flash("Invalid credentials.", "danger")
         except Exception as e:
             logging.error(f"Admin login error: {e}")
@@ -493,7 +516,9 @@ def admin_login():
 @app.route("/admin/logout")
 @admin_required
 def admin_logout():
-    session.pop("admin_username", None)
+    admin_user = session.get("admin_username", "unknown")
+    session.clear()
+    logging.info(f"Security: Admin '{admin_user}' logged out")
     flash("Admin logged out.", "info")
     return redirect(url_for("admin_login"))
 
@@ -545,6 +570,7 @@ def admin_change_password():
 
 @app.route("/admin/add_admin", methods=["POST"])
 @admin_required
+@limiter.limit("10 per minute")
 def admin_add_admin():
     username = request.form.get("new_admin_username", "").strip()
     password = request.form.get("new_admin_password", "").strip()
@@ -581,6 +607,7 @@ def admin_add_admin():
 
 @app.route("/admin/delete_admin/<username>", methods=["POST"])
 @admin_required
+@limiter.limit("10 per minute")
 def admin_delete_admin(username):
     if session.get("admin_username") != "admin":
         flash("You do not have permission to delete admin accounts.", "danger")
@@ -980,10 +1007,12 @@ def login():
                 session.clear()
                 session["netid"] = netid
                 session["user_login_time"] = datetime.now().isoformat()
+                logging.info(f"Security: User '{netid}' logged in successfully from {get_remote_address()}")
                 flash("Logged in successfully.", "success")
                 return redirect(url_for("index"))
             else:
-                flash("NetID not recognized. Please contact the administrator.", "danger")
+                logging.warning(f"Security: Failed login attempt for netid '{netid}' from {get_remote_address()}")
+                flash("Invalid credentials. Please contact the administrator.", "danger")
         except Exception as e:
             logging.error(f"User login error: {e}")
             flash("An error occurred during login. Please try again.", "danger")
@@ -1460,6 +1489,7 @@ def admin_upload_emails():
             added = []
             updated = []
             skipped = []
+            invalid = []
             for row in reader:
                 if len(row) < 2:
                     continue
@@ -1467,6 +1497,13 @@ def admin_upload_emails():
                 name = row[1].strip()
                 if not netid:
                     continue
+                # Validate netid format (same validation as manual entry)
+                if len(netid) > 20 or not re.match(r'^[a-zA-Z0-9_-]+$', netid):
+                    invalid.append(netid)
+                    continue
+                # Validate name length
+                if len(name) > 100:
+                    name = name[:100]
                 cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
                 existing = cur.fetchone()
                 try:
@@ -1484,10 +1521,10 @@ def admin_upload_emails():
                 except sqlite3.IntegrityError:
                     skipped.append(netid)
             db.commit()
-            flash(
-                f"Added: {len(added)}. Updated: {len(updated)}. Skipped: {len(skipped)}.",
-                "success",
-            )
+            msg = f"Added: {len(added)}. Updated: {len(updated)}. Skipped: {len(skipped)}."
+            if invalid:
+                msg += f" Invalid format: {len(invalid)}."
+            flash(msg, "success")
     return redirect(url_for("admin"))
 
 
@@ -1536,10 +1573,23 @@ def admin_add_user():
 
 @app.route("/admin/delete_user", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def admin_delete_user():
     db = get_db()
     netids_str = request.form.get("delete_netid", "")
+    
+    # Limit input length to prevent DoS
+    if len(netids_str) > 10000:
+        flash("Input too long. Please delete users in smaller batches.", "danger")
+        return redirect(url_for("admin"))
+    
     netids = [x.strip().lower() for x in netids_str.split(",") if x.strip()]
+    
+    # Limit number of netids per request
+    if len(netids) > 100:
+        flash("Too many netids. Please delete users in smaller batches (max 100).", "danger")
+        return redirect(url_for("admin"))
+    
     if not netids:
         flash("No netid provided.", "danger")
         return redirect(url_for("admin"))
@@ -1605,6 +1655,7 @@ def admin_bulk_delete_users():
 # ---------------------------
 @app.route("/admin/add_reservation", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def admin_add_reservation():
     try:
         db = get_db()
@@ -1671,6 +1722,7 @@ def admin_add_reservation():
 
 @app.route("/admin/delete_reservation/<int:reservation_id>", methods=["POST"])
 @admin_required
+@limiter.limit("30 per minute")
 def admin_delete_reservation(reservation_id):
     try:
         db = get_db()
@@ -2003,7 +2055,6 @@ def health_check():
         return jsonify({
             "status": "unhealthy",
             "version": "2.0.3",
-            "error": str(e),
             "timestamp": datetime.now().isoformat()
         }), 500
 
@@ -2044,4 +2095,6 @@ def inject_asset_version():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Use environment variable for debug mode to prevent accidental production debugging
+    debug_mode = os.getenv('FLASK_DEBUG', 'false').lower() in ('true', '1', 'yes')
+    app.run(debug=debug_mode)

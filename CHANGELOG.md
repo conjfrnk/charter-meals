@@ -1,5 +1,39 @@
 # Changelog
 
+## [v2.0.4] - 2026-01-03
+
+### Security Fixes
+- **SQL Injection in migrate-db Command**: Added whitelist validation for table and column names in the database migration CLI command to prevent potential SQL injection if schema.sql is compromised.
+- **Admin Session Handling**: Changed admin logout to use `session.clear()` instead of `session.pop()` to fully clear session data and prevent session data leakage.
+- **Rate Limiting on Admin Endpoints**: Added rate limiting to sensitive admin endpoints:
+  - `/admin/add_admin`: 10 per minute
+  - `/admin/delete_admin`: 10 per minute
+  - `/admin/delete_user`: 30 per minute
+  - `/admin/add_reservation`: 30 per minute
+  - `/admin/delete_reservation`: 30 per minute
+- **Health Check Information Disclosure**: Removed error details from `/health` endpoint response to prevent information disclosure.
+- **Debug Mode Security**: Changed debug mode to use `FLASK_DEBUG` environment variable instead of hardcoded `True` to prevent accidental production debugging.
+- **Security Event Logging**: Added security logging for authentication events:
+  - Successful admin logins with IP address
+  - Failed admin login attempts with IP address
+  - Successful user logins with IP address
+  - Failed user login attempts with IP address
+  - Admin logout events
+  - Session expiration events
+- **User Enumeration Prevention**: Changed user login error message from "NetID not recognized" to generic "Invalid credentials" to prevent NetID enumeration.
+- **CSV Upload Validation**: Added NetID format validation to CSV user upload (same validation as manual entry) to prevent malformed data.
+- **Input Length Validation**: Added input length validation to `admin_delete_user` endpoint (max 10KB input, max 100 netids per request) to prevent DoS attacks.
+- **Session Timeout Redirect Fix**: Fixed session timeout redirect to properly differentiate between admin and user sessions, redirecting to the appropriate login page.
+
+### Bug Fixes
+- **Duplicate CSP Headers**: Removed duplicate Content-Security-Policy meta tag from layout.html (already set via HTTP headers by Flask-Talisman).
+- **Dead Code Removal**: Removed unused `client_timestamp` hidden input field from meal signup form.
+
+### Code Quality
+- **Autocomplete Attributes**: Added proper `autocomplete` attributes to admin password fields for better password manager support.
+
+---
+
 ## [v2.0.3] - 2026-01-03
 
 ### Security Fixes
