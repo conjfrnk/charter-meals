@@ -5,6 +5,7 @@ import logging
 import csv, io
 from datetime import datetime, date, timedelta
 from functools import wraps
+import threading
 from flask import (
     Flask,
     render_template,
@@ -60,6 +61,7 @@ app.config.update(
 logging.basicConfig(level=logging.INFO)
 
 last_slot_generation = None
+_slot_generation_lock = threading.Lock()
 
 # New Content Security Policy as required.
 csp = {
@@ -312,16 +314,20 @@ def next_occurrence(target_weekday, target_time, ref):
 def generate_next_week_meal_slots():
     global last_slot_generation
     try:
-        if (
-            last_slot_generation
-            and (datetime.now() - last_slot_generation).total_seconds() < 21600
-        ):
-            return
+        # Use lock to prevent race conditions when checking/updating last_slot_generation
+        with _slot_generation_lock:
+            if (
+                last_slot_generation
+                and (datetime.now() - last_slot_generation).total_seconds() < 21600
+            ):
+                return
+            
+            last_slot_generation = datetime.now()
         
-        last_slot_generation = datetime.now()
         db = get_db()
         today = date.today()
         next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
+        next_sunday = next_monday + timedelta(days=6)
         days = [next_monday + timedelta(days=i) for i in range(7)]
         
         slots_created = 0
@@ -351,6 +357,8 @@ def generate_next_week_meal_slots():
             db.commit()
             if slots_created > 0:
                 logging.info(f"Generated {slots_created} new meal slots for week starting {next_monday}")
+                # Invalidate meal slots cache when new slots are created
+                cache.delete_memoized(get_meal_slots_data, next_monday, next_sunday)
         except Exception as e:
             logging.error(f"Error committing meal slot generation: {e}")
             db.rollback()
@@ -466,12 +474,15 @@ def admin_login():
             cur = db.execute("SELECT * FROM admins WHERE username = ?", (username,))
             admin = cur.fetchone()
             if admin and check_password_hash(admin["password"], password):
+                # Regenerate session to prevent session fixation
+                session.clear()
                 session["admin_username"] = username
                 session["admin_login_time"] = datetime.now().isoformat()
                 flash("Admin logged in successfully.", "success")
                 return redirect(url_for("admin"))
             else:
-                flash("Invalid admin credentials.", "danger")
+                # Use generic error message to prevent username enumeration
+                flash("Invalid credentials.", "danger")
         except Exception as e:
             logging.error(f"Admin login error: {e}")
             flash("An error occurred during login. Please try again.", "danger")
@@ -602,8 +613,14 @@ def export_sort_key(row):
 @app.route("/admin/download_meal_signups/<week_start>")
 @admin_required
 def admin_download_meal_signups_week(week_start):
+    # Validate date format to prevent injection
+    try:
+        week_start_date = datetime.strptime(week_start, "%Y-%m-%d").date()
+    except ValueError:
+        flash("Invalid date format.", "danger")
+        return redirect(url_for("admin"))
+    
     db = get_db()
-    week_start_date = datetime.strptime(week_start, "%Y-%m-%d").date()
     week_end_date = week_start_date + timedelta(days=6)
     cur = db.execute(
         """
@@ -884,6 +901,32 @@ def admin_settings():
     open_time = request.form.get("reservation_open_time", "").strip()
     close_day = request.form.get("reservation_close_day", "").strip()
     close_time = request.form.get("reservation_close_time", "").strip()
+    
+    # Validate inputs
+    valid_statuses = ["auto", "open", "closed"]
+    valid_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    time_pattern = re.compile(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$')
+    
+    if manual_status not in valid_statuses:
+        flash("Invalid reservation status.", "danger")
+        return redirect(url_for("admin"))
+    
+    if open_day and open_day not in valid_days:
+        flash("Invalid open day.", "danger")
+        return redirect(url_for("admin"))
+    
+    if close_day and close_day not in valid_days:
+        flash("Invalid close day.", "danger")
+        return redirect(url_for("admin"))
+    
+    if open_time and not time_pattern.match(open_time):
+        flash("Invalid open time format. Use HH:MM.", "danger")
+        return redirect(url_for("admin"))
+    
+    if close_time and not time_pattern.match(close_time):
+        flash("Invalid close time format. Use HH:MM.", "danger")
+        return redirect(url_for("admin"))
+    
     db.execute(
         "REPLACE INTO settings (key, value) VALUES (?, ?)",
         ("reservation_status", manual_status),
@@ -933,6 +976,8 @@ def login():
             cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
             user = cur.fetchone()
             if user:
+                # Regenerate session to prevent session fixation
+                session.clear()
                 session["netid"] = netid
                 session["user_login_time"] = datetime.now().isoformat()
                 flash("Logged in successfully.", "success")
@@ -946,9 +991,13 @@ def login():
     return render_template("login.html")
 
 
-@app.route("/guest_login", methods=["GET"])
+@app.route("/guest_login", methods=["POST"])
+@limiter.limit("10 per minute")
 def guest_login():
+    # Regenerate session to prevent session fixation
+    session.clear()
     session["netid"] = "guest"
+    session["user_login_time"] = datetime.now().isoformat()
     flash("Logged in as guest.", "info")
     return redirect(url_for("index"))
 
@@ -1223,6 +1272,7 @@ def index():
 
 @app.route("/reserve", methods=["POST"])
 @login_required
+@limiter.limit("30 per minute")
 def reserve():
     if session.get("netid") == "guest":
         flash("Guest users cannot submit reservations.", "danger")
@@ -1446,20 +1496,41 @@ def admin_upload_emails():
 def admin_add_user():
     db = get_db()
     netids_str = request.form.get("new_netid", "")
-    netids = [x.strip().lower() for x in netids_str.split(",") if x.strip()]
-    if not netids:
-        flash("No netid provided.", "danger")
+    
+    # Validate and sanitize netids
+    valid_netids = []
+    invalid_netids = []
+    for netid in netids_str.split(","):
+        netid = netid.strip().lower()
+        if netid:
+            if len(netid) <= 20 and re.match(r'^[a-zA-Z0-9_-]+$', netid):
+                valid_netids.append(netid)
+            else:
+                invalid_netids.append(netid)
+    
+    if not valid_netids:
+        if invalid_netids:
+            flash(f"Invalid NetID format: {', '.join(invalid_netids)}", "danger")
+        else:
+            flash("No netid provided.", "danger")
         return redirect(url_for("admin"))
+    
     added = []
     skipped = []
-    for netid in netids:
+    for netid in valid_netids:
         try:
             db.execute("INSERT INTO users (netid) VALUES (?)", (netid,))
             added.append(netid)
         except sqlite3.IntegrityError:
             skipped.append(netid)
     db.commit()
-    flash(f"Added users: {', '.join(added)}. Skipped: {', '.join(skipped)}", "success")
+    
+    msg = f"Added users: {', '.join(added)}." if added else "No users added."
+    if skipped:
+        msg += f" Skipped (already exist): {', '.join(skipped)}."
+    if invalid_netids:
+        msg += f" Invalid format: {', '.join(invalid_netids)}."
+    flash(msg, "success" if added else "warning")
     return redirect(url_for("admin"))
 
 
@@ -1625,11 +1696,22 @@ def admin_delete_reservation(reservation_id):
 # Content Management Routes
 # ---------------------------
 def parse_markdown(text, content_key=None):
-    """Parse basic markdown formatting in text."""
-    import re
+    """Parse basic markdown formatting in text with HTML sanitization."""
+    from markupsafe import escape
     
-    # Convert markdown links to HTML
-    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" target="_blank">\1</a>', text)
+    # First, escape all HTML to prevent XSS
+    text = str(escape(text))
+    
+    # Convert markdown links to HTML (only allow http/https URLs)
+    def safe_link(match):
+        link_text = match.group(1)
+        url = match.group(2)
+        # Only allow http, https, and mailto URLs
+        if url.startswith(('http://', 'https://', 'mailto:')):
+            return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{link_text}</a>'
+        return link_text  # Return just the text if URL is not safe
+    
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', safe_link, text)
     
     # Convert bold text
     text = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', text)
@@ -1687,6 +1769,7 @@ def admin_delete_content(content_key):
 # ---------------------------
 @app.route("/admin/purge", methods=["POST"])
 @admin_required
+@limiter.limit("1 per minute")
 def admin_purge():
     db = get_db()
     try:
@@ -1910,7 +1993,7 @@ def health_check():
         
         return jsonify({
             "status": "healthy",
-            "version": "2.0.2",
+            "version": "2.0.3",
             "database": "ok",
             "cache": cache_status,
             "timestamp": datetime.now().isoformat()
@@ -1919,7 +2002,7 @@ def health_check():
         logging.error(f"Health check failed: {e}")
         return jsonify({
             "status": "unhealthy",
-            "version": "2.0.2",
+            "version": "2.0.3",
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }), 500

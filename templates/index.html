@@ -10,7 +10,7 @@
 </p>
 <p>
   {% if website_content.get('feedback_link') %}
-    <a target="_blank" rel="noopener noreferrer" href="{{ website_content.get('feedback_link') }}">Feedback Form Link</a>.
+    <a target="_blank" rel="noopener noreferrer" href="{{ website_content.get('feedback_link')|e }}">Feedback Form Link</a>.
   {% endif %}
 </p>
 

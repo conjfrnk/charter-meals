@@ -1,5 +1,30 @@
 # Changelog
 
+## [v2.0.3] - 2026-01-03
+
+### Security Fixes
+- **Session Fixation Prevention**: Added session regeneration after successful login for both user and admin authentication to prevent session fixation attacks.
+- **XSS Prevention in Content Management**: Added HTML escaping via `markupsafe.escape()` in `parse_markdown()` function before processing markdown, preventing XSS attacks through user-submitted content.
+- **URL Validation in Markdown Links**: Added validation to only allow `http://`, `https://`, and `mailto:` URLs in markdown links, blocking `javascript:` and other dangerous protocols.
+- **Guest Login CSRF Protection**: Changed guest login from GET to POST method and added CSRF token protection and rate limiting.
+- **Rate Limiting on Reserve Route**: Added rate limiting (30 per minute) to `/reserve` endpoint to prevent abuse.
+- **Rate Limiting on Purge Route**: Added rate limiting (1 per minute) to `/admin/purge` endpoint to prevent accidental multiple purges.
+- **Username Enumeration Prevention**: Changed admin login error message from "Invalid admin credentials" to generic "Invalid credentials" to prevent username enumeration.
+- **Input Validation for Settings**: Added validation for reservation settings (valid days, valid time format HH:MM, valid status values).
+- **Input Validation for User Add**: Added NetID format validation in `admin_add_user` route with proper error messages for invalid formats.
+- **Date Format Validation**: Added try/except validation for week_start date parameter in CSV download to prevent injection.
+- **External Link Security**: Added `rel="noopener noreferrer"` to external links in footer and content to prevent tabnabbing.
+
+### Bug Fixes
+- **Thread Safety in Slot Generation**: Added threading lock to `generate_next_week_meal_slots()` to prevent race conditions when multiple requests check/update `last_slot_generation` simultaneously.
+- **Cache Invalidation for Meal Slots**: Added cache invalidation for `get_meal_slots_data` when new meal slots are generated.
+- **Duplicate DOMContentLoaded Handlers**: Consolidated duplicate `DOMContentLoaded` event listeners in admin.html into a single handler for better performance.
+
+### Code Quality
+- **Thread Safety Import**: Added `threading` module import for lock mechanism.
+
+---
+
 ## [v2.0.2] - 2026-01-03
 
 ### Security Fixes

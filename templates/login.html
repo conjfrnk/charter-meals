@@ -9,7 +9,8 @@
   <button type="submit">Login</button>
 </form>
 <br>
-<form method="GET" action="{{ url_for('guest_login') }}">
+<form method="POST" action="{{ url_for('guest_login') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <button type="submit">Proceed as Guest</button>
 </form>
 {% endblock %}

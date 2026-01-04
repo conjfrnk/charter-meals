@@ -382,12 +382,11 @@
     div.parentNode.removeChild(div);
   }
   
-  // Tab functionality
+  // Combined Tab and Subtab functionality in single DOMContentLoaded handler
   document.addEventListener('DOMContentLoaded', function() {
-    // Get all tab buttons
+    // Tab functionality
     const tabButtons = document.querySelectorAll('.tablink');
     
-    // Add click event listeners
     tabButtons.forEach(button => {
       button.addEventListener('click', function() {
         // Remove active class from all buttons
@@ -414,10 +413,8 @@
     if (firstTab) {
       firstTab.click();
     }
-  });
-  
-  // Subtab functionality
-  document.addEventListener('DOMContentLoaded', function() {
+    
+    // Subtab functionality
     const subtabButtons = document.querySelectorAll('.subtab-btn');
     
     subtabButtons.forEach(button => {
