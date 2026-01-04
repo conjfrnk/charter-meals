@@ -352,6 +352,7 @@ def generate_next_week_meal_slots():
     global last_slot_generation
     try:
         # Use lock to prevent race conditions when checking/updating last_slot_generation
+        # Keep lock held during the entire operation to prevent concurrent slot generation
         with _slot_generation_lock:
             if (
                 last_slot_generation
@@ -359,46 +360,46 @@ def generate_next_week_meal_slots():
             ):
                 return
             
-            last_slot_generation = datetime.now()
-        
-        db = get_db()
-        today = date.today()
-        next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
-        next_sunday = next_monday + timedelta(days=6)
-        days = [next_monday + timedelta(days=i) for i in range(7)]
-        
-        slots_created = 0
-        for d in days:
-            day_str = d.isoformat()
-            meals = (
-                ["breakfast", "lunch", "dinner"]
-                if d.weekday() < 5
-                else ["brunch", "dinner"]
-            )
-            for meal in meals:
-                try:
-                    cur = db.execute(
-                        "SELECT id FROM meal_slots WHERE date = ? AND meal_type = ?",
-                        (day_str, meal),
-                    )
-                    if cur.fetchone() is None:
-                        db.execute(
-                            "INSERT INTO meal_slots (date, meal_type, capacity) VALUES (?, ?, ?)",
-                            (day_str, meal, 25),
+            db = get_db()
+            today = date.today()
+            next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
+            next_sunday = next_monday + timedelta(days=6)
+            days = [next_monday + timedelta(days=i) for i in range(7)]
+            
+            slots_created = 0
+            for d in days:
+                day_str = d.isoformat()
+                meals = (
+                    ["breakfast", "lunch", "dinner"]
+                    if d.weekday() < 5
+                    else ["brunch", "dinner"]
+                )
+                for meal in meals:
+                    try:
+                        cur = db.execute(
+                            "SELECT id FROM meal_slots WHERE date = ? AND meal_type = ?",
+                            (day_str, meal),
                         )
-                        slots_created += 1
-                except Exception as e:
-                    logging.error(f"Error creating meal slot for {day_str} {meal}: {e}")
-        
-        try:
-            db.commit()
-            if slots_created > 0:
-                logging.info(f"Generated {slots_created} new meal slots for week starting {next_monday}")
-                # Invalidate meal slots cache when new slots are created
-                cache.delete_memoized(get_meal_slots_data, next_monday, next_sunday)
-        except Exception as e:
-            logging.error(f"Error committing meal slot generation: {e}")
-            db.rollback()
+                        if cur.fetchone() is None:
+                            db.execute(
+                                "INSERT INTO meal_slots (date, meal_type, capacity) VALUES (?, ?, ?)",
+                                (day_str, meal, 25),
+                            )
+                            slots_created += 1
+                    except Exception as e:
+                        logging.error(f"Error creating meal slot for {day_str} {meal}: {e}")
+            
+            try:
+                db.commit()
+                # Only update last_slot_generation after successful commit
+                last_slot_generation = datetime.now()
+                if slots_created > 0:
+                    logging.info(f"Generated {slots_created} new meal slots for week starting {next_monday}")
+                    # Invalidate meal slots cache when new slots are created
+                    cache.delete_memoized(get_meal_slots_data, next_monday, next_sunday)
+            except Exception as e:
+                logging.error(f"Error committing meal slot generation: {e}")
+                db.rollback()
             
     except Exception as e:
         logging.error(f"Error in generate_next_week_meal_slots: {e}")
@@ -1794,9 +1795,11 @@ def admin_add_reservation():
             flash("Meal slot ID is required.", "danger")
             return redirect(url_for("admin"))
         
+        # Validate meal slot ID is within reasonable bounds
+        MAX_SLOT_ID = 10000000  # 10 million - consistent with reserve route
         try:
             meal_slot_id_int = int(meal_slot_id)
-            if meal_slot_id_int <= 0:
+            if meal_slot_id_int <= 0 or meal_slot_id_int > MAX_SLOT_ID:
                 raise ValueError("Invalid meal slot ID")
         except (ValueError, TypeError):
             flash("Invalid meal slot ID.", "danger")
@@ -1977,6 +1980,7 @@ def parse_markdown(text, content_key=None):
 
 @app.route("/admin/delete_content/<content_key>", methods=["POST"])
 @admin_required
+@limiter.limit("10 per minute")
 def admin_delete_content(content_key):
     # Validate content_key against allowed keys
     allowed_keys = [
@@ -1992,6 +1996,7 @@ def admin_delete_content(content_key):
         db.execute("DELETE FROM website_content WHERE content_key = ?", (content_key,))
         db.commit()
         cache.delete_memoized(get_website_content)
+        logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' deleted content '{content_key}'")
         flash("Content deleted successfully.", "success")
     except Exception as e:
         logging.error(f"Error deleting content {content_key}: {e}")

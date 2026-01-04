@@ -1,5 +1,22 @@
 # Changelog
 
+## [v2.0.8] - 2026-01-03
+
+### Security Fixes
+- **Race Condition in Slot Generation**: Fixed race condition in `generate_next_week_meal_slots()` by keeping the lock held during the entire database operation, not just the timestamp check. The `last_slot_generation` timestamp is now only updated after successful commit.
+- **Rate Limiting on Content Delete**: Added `@limiter.limit("10 per minute")` decorator to `/admin/delete_content/<content_key>` endpoint to prevent abuse.
+- **Security Logging for Content Delete**: Added security audit logging when admin deletes website content.
+- **Meal Slot ID Upper Bound**: Added upper bound validation (max 10M) for meal slot ID in `/admin/add_reservation` route for consistency with other endpoints.
+
+### Bug Fixes
+- **Template Rendering Consistency**: Fixed website content rendering in index.html to properly use `|safe` filter since content is already HTML-sanitized by `parse_markdown()`. Previously, the `|e` filter was double-escaping the pre-sanitized HTML content, causing markdown formatting to display as raw HTML entities.
+
+### Code Quality
+- Improved thread safety in meal slot generation with proper lock scope.
+- Consistent ID validation limits across all admin endpoints.
+
+---
+
 ## [v2.0.7] - 2026-01-03
 
 ### Security Fixes
