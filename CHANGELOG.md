@@ -1,5 +1,37 @@
 # Changelog
 
+## [v2.0.5] - 2026-01-03
+
+### Security Fixes
+- **Unauthenticated Endpoint**: Added `@login_required` decorator to `/meal_counts` endpoint to prevent unauthenticated access to reservation count data.
+- **Health Endpoint Hardening**: Added rate limiting (60/min) and CSRF exemption to `/health` endpoint for proper monitoring while preventing abuse.
+- **Secure Database Backup**: Improved `admin_backup_database` to use `tempfile.mkstemp()` for secure temporary file handling, preventing file leaks and ensuring cleanup on errors.
+- **File Upload Validation**: Added comprehensive file upload validation to prevent DoS attacks:
+  - `admin_upload_emails`: Max 1MB file size, max 2000 rows, rate limited (10/min)
+  - `admin_bulk_delete_users`: Max 1MB file size, max 1000 netIDs, rate limited (10/min)
+  - Added UTF-8 encoding validation with clear error messages
+- **Input Sanitization**: Added character sanitization for user names in CSV upload (removes `<>\"'`) to prevent XSS through user display names.
+- **Slot ID Validation**: Added upper bound validation (max 1M) for meal slot IDs to prevent integer overflow attacks.
+- **Archive Clear Rate Limiting**: Added rate limiting (5/min) to archive clear endpoint.
+
+### Security Logging
+- Added security audit logging for sensitive admin operations:
+  - Admin account creation and deletion
+  - Database backup downloads
+  - Database purge operations
+  - Archive data clearing
+  - Bulk user uploads and deletions
+
+### Bug Fixes
+- Fixed potential file handle leak in database backup on error conditions.
+- Improved error handling for file upload decode failures with specific error messages.
+
+### Code Quality
+- Consolidated rate limiting across all admin file upload and delete endpoints.
+- Improved code documentation for security-sensitive operations.
+
+---
+
 ## [v2.0.4] - 2026-01-03
 
 ### Security Fixes

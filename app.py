@@ -599,6 +599,7 @@ def admin_add_admin():
             (username, password_hash),
         )
         db.commit()
+        logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' created new admin account '{username}'")
         flash(f"Admin account '{username}' created successfully.", "success")
     except sqlite3.IntegrityError:
         flash("Admin account already exists.", "warning")
@@ -618,6 +619,7 @@ def admin_delete_admin(username):
     db = get_db()
     db.execute("DELETE FROM admins WHERE username = ?", (username,))
     db.commit()
+    logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' deleted admin account '{username}'")
     flash(f"Admin account '{username}' deleted.", "success")
     return redirect(url_for("admin"))
 
@@ -1313,13 +1315,18 @@ def reserve():
         flash("No meal slots selected.", "danger")
         return redirect(url_for("index"))
     
-    # Validate slot IDs are integers
+    # Validate slot IDs are integers within reasonable bounds
+    # Maximum slot ID is 2^31-1 (SQLite INTEGER max), but we use a more conservative limit
+    MAX_SLOT_ID = 1000000  # 1 million slots should be more than enough
     selected_slots = set()
     for slot_id in selected_slots_raw:
         try:
             slot_id_int = int(slot_id)
-            if slot_id_int > 0:
+            if slot_id_int > 0 and slot_id_int <= MAX_SLOT_ID:
                 selected_slots.add(str(slot_id_int))
+            elif slot_id_int > MAX_SLOT_ID:
+                flash("Invalid meal slot selection.", "danger")
+                return redirect(url_for("index"))
         except (ValueError, TypeError):
             flash("Invalid meal slot selection.", "danger")
             return redirect(url_for("index"))
@@ -1462,6 +1469,7 @@ def reserve():
 
 
 @app.route("/meal_counts")
+@login_required
 def meal_counts():
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
@@ -1474,23 +1482,49 @@ def meal_counts():
 
 @app.route("/admin/upload_emails", methods=["POST"])
 @admin_required
+@limiter.limit("10 per minute")
 def admin_upload_emails():
+    # Maximum file size: 1MB
+    MAX_FILE_SIZE = 1 * 1024 * 1024
+    
     db = get_db()
     if "emails_file" in request.files:
         f = request.files["emails_file"]
         if f:
             try:
+                # Check file size before reading
+                f.seek(0, 2)  # Seek to end
+                file_size = f.tell()
+                f.seek(0)  # Reset to beginning
+                
+                if file_size > MAX_FILE_SIZE:
+                    flash("File too large. Maximum size is 1MB.", "danger")
+                    return redirect(url_for("admin"))
+                
                 content = f.read().decode("utf-8")
+            except UnicodeDecodeError:
+                flash("Error reading file: Invalid file encoding. Please use UTF-8.", "danger")
+                return redirect(url_for("admin"))
             except Exception as e:
+                logging.error(f"Error reading upload file: {e}")
                 flash("Error reading file.", "danger")
                 return redirect(url_for("admin"))
+            
             f_io = io.StringIO(content)
             reader = csv.reader(f_io)
             added = []
             updated = []
             skipped = []
             invalid = []
+            row_count = 0
+            
             for row in reader:
+                row_count += 1
+                # Limit rows to prevent DoS
+                if row_count > 2000:
+                    flash(f"File contains too many rows. Only first 2000 rows processed.", "warning")
+                    break
+                    
                 if len(row) < 2:
                     continue
                 netid = row[0].strip().lower()
@@ -1499,9 +1533,10 @@ def admin_upload_emails():
                     continue
                 # Validate netid format (same validation as manual entry)
                 if len(netid) > 20 or not re.match(r'^[a-zA-Z0-9_-]+$', netid):
-                    invalid.append(netid)
+                    invalid.append(netid[:20])  # Truncate for display
                     continue
-                # Validate name length
+                # Validate and sanitize name - remove potentially dangerous characters
+                name = re.sub(r'[<>"\']', '', name)
                 if len(name) > 100:
                     name = name[:100]
                 cur = db.execute("SELECT netid FROM users WHERE netid = ?", (netid,))
@@ -1521,6 +1556,9 @@ def admin_upload_emails():
                 except sqlite3.IntegrityError:
                     skipped.append(netid)
             db.commit()
+            
+            logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' uploaded users - added: {len(added)}, updated: {len(updated)}")
+            
             msg = f"Added: {len(added)}. Updated: {len(updated)}. Skipped: {len(skipped)}."
             if invalid:
                 msg += f" Invalid format: {len(invalid)}."
@@ -1612,22 +1650,52 @@ def admin_delete_user():
 
 @app.route("/admin/bulk_delete_users", methods=["POST"])
 @admin_required
+@limiter.limit("10 per minute")
 def admin_bulk_delete_users():
+    # Maximum file size: 1MB
+    MAX_FILE_SIZE = 1 * 1024 * 1024
+    
     db = get_db()
     if "delete_netids_file" in request.files:
         f = request.files["delete_netids_file"]
         if f:
             try:
+                # Check file size before reading
+                f.seek(0, 2)  # Seek to end
+                file_size = f.tell()
+                f.seek(0)  # Reset to beginning
+                
+                if file_size > MAX_FILE_SIZE:
+                    flash("File too large. Maximum size is 1MB.", "danger")
+                    return redirect(url_for("admin"))
+                
                 content = f.read().decode("utf-8")
-            except Exception as e:
-                flash("Error reading file: " + str(e), "danger")
+            except UnicodeDecodeError:
+                flash("Error reading file: Invalid file encoding. Please use UTF-8.", "danger")
                 return redirect(url_for("admin"))
+            except Exception as e:
+                logging.error(f"Error reading bulk delete file: {e}")
+                flash("Error reading file.", "danger")
+                return redirect(url_for("admin"))
+            
             netid_candidates = re.split(r"[\n,]+", content)
             valid_netids = []
+            invalid_netids = []
+            
             for netid in netid_candidates:
                 netid = netid.strip().lower()
                 if netid:
-                    valid_netids.append(netid)
+                    # Validate netid format
+                    if len(netid) <= 20 and re.match(r'^[a-zA-Z0-9_-]+$', netid):
+                        valid_netids.append(netid)
+                    else:
+                        invalid_netids.append(netid[:20])  # Truncate for display
+            
+            # Limit number of netids per request to prevent DoS
+            if len(valid_netids) > 1000:
+                flash("Too many netIDs in file. Maximum is 1000 per request.", "danger")
+                return redirect(url_for("admin"))
+            
             removed = []
             not_found = []
             for netid in valid_netids:
@@ -1639,10 +1707,13 @@ def admin_bulk_delete_users():
                 else:
                     not_found.append(netid)
             db.commit()
-            flash(
-                f"Bulk deletion complete: {len(removed)} netIDs removed, {len(not_found)} netIDs not found.",
-                "success",
-            )
+            
+            logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' bulk deleted {len(removed)} users")
+            
+            msg = f"Bulk deletion complete: {len(removed)} netIDs removed, {len(not_found)} netIDs not found."
+            if invalid_netids:
+                msg += f" {len(invalid_netids)} invalid format netIDs skipped."
+            flash(msg, "success")
         else:
             flash("No file selected.", "danger")
     else:
@@ -1884,8 +1955,10 @@ def admin_purge():
         cache.clear()
         
         db.commit()
+        logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' performed database purge - all users, reservations, and meal slots archived and deleted")
         flash("All users, reservations, and meal slots have been archived and purged. The system is ready for a new semester.", "success")
     except Exception as e:
+        logging.error(f"Purge failed: {e}")
         flash(f"Error during purge: {str(e)}", "danger")
     
     return redirect(url_for("admin"))
@@ -1953,6 +2026,7 @@ def admin_download_archive():
 
 @app.route("/admin/clear_archive", methods=["POST"])
 @admin_required
+@limiter.limit("5 per minute")
 def admin_clear_archive():
     """Clear all archived data."""
     db = get_db()
@@ -1961,8 +2035,10 @@ def admin_clear_archive():
         db.execute("DELETE FROM archived_meal_slots")
         db.execute("DELETE FROM archived_reservations")
         db.commit()
+        logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' cleared all archived data")
         flash("All archived data has been cleared.", "success")
     except Exception as e:
+        logging.error(f"Error clearing archive: {e}")
         flash(f"Error clearing archive: {str(e)}", "danger")
     
     return redirect(url_for("admin"))
@@ -1971,35 +2047,44 @@ def admin_clear_archive():
 @admin_required
 def admin_backup_database():
     """Create a backup of the current database."""
+    import shutil
+    import tempfile
+    
+    backup_filename = None
     try:
-        import shutil
-        
-        # Create backup filename with timestamp
+        # Create backup filename with timestamp in temp directory
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_filename = f"charter_meals_backup_{timestamp}.db"
+        display_filename = f"charter_meals_backup_{timestamp}.db"
+        
+        # Use tempfile for secure temporary file handling
+        fd, backup_filename = tempfile.mkstemp(suffix='.db', prefix='charter_backup_')
+        os.close(fd)  # Close the file descriptor, we'll use shutil.copy2
         
         # Copy database file
         shutil.copy2(app.config["DATABASE"], backup_filename)
         
-        # Read file contents with proper context manager
-        try:
-            with open(backup_filename, 'rb') as f:
-                data = f.read()
-        finally:
-            # Clean up backup file
-            if os.path.exists(backup_filename):
-                os.remove(backup_filename)
+        # Read file contents
+        with open(backup_filename, 'rb') as f:
+            data = f.read()
         
         # Create response with backup data
         response = Response(data, mimetype='application/octet-stream')
-        response.headers['Content-Disposition'] = f'attachment; filename={backup_filename}'
+        response.headers['Content-Disposition'] = f'attachment; filename={display_filename}'
         
+        logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' downloaded database backup")
         return response
         
     except Exception as e:
         logging.error(f"Database backup failed: {e}")
         flash("An error occurred while creating backup.", "danger")
         return redirect(url_for("admin"))
+    finally:
+        # Always clean up backup file
+        if backup_filename and os.path.exists(backup_filename):
+            try:
+                os.remove(backup_filename)
+            except OSError as e:
+                logging.warning(f"Failed to remove temporary backup file: {e}")
 
 
 # ---------------------------
@@ -2029,6 +2114,8 @@ def internal_error(error):
     return redirect(url_for("index"))
 
 @app.route("/health")
+@limiter.limit("60 per minute")
+@csrf.exempt  # Health checks don't need CSRF protection
 def health_check():
     """Health check endpoint for monitoring."""
     try:
@@ -2043,18 +2130,33 @@ def health_check():
         except Exception:
             cache_status = "error"
         
+        # Read version from VERSION file
+        try:
+            version_path = os.path.join(os.path.dirname(__file__), "VERSION")
+            with open(version_path, "r") as vf:
+                version = vf.read().strip()
+        except Exception:
+            version = "unknown"
+        
         return jsonify({
             "status": "healthy",
-            "version": "2.0.3",
+            "version": version,
             "database": "ok",
             "cache": cache_status,
             "timestamp": datetime.now().isoformat()
         })
     except Exception as e:
         logging.error(f"Health check failed: {e}")
+        # Read version from VERSION file even on error
+        try:
+            version_path = os.path.join(os.path.dirname(__file__), "VERSION")
+            with open(version_path, "r") as vf:
+                version = vf.read().strip()
+        except Exception:
+            version = "unknown"
         return jsonify({
             "status": "unhealthy",
-            "version": "2.0.3",
+            "version": version,
             "timestamp": datetime.now().isoformat()
         }), 500
 
