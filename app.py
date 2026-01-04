@@ -610,17 +610,29 @@ def admin_add_admin():
 @admin_required
 @limiter.limit("10 per minute")
 def admin_delete_admin(username):
+    # Validate username format to prevent any injection
+    if not username or len(username) > 50 or not re.match(r'^[a-zA-Z0-9_-]+$', username):
+        flash("Invalid username format.", "danger")
+        return redirect(url_for("admin"))
+    
     if session.get("admin_username") != "admin":
         flash("You do not have permission to delete admin accounts.", "danger")
         return redirect(url_for("admin"))
     if username == "admin":
         flash("Cannot delete the primary admin account.", "danger")
         return redirect(url_for("admin"))
+    
     db = get_db()
+    # Check if admin exists before deleting
+    cur = db.execute("SELECT username FROM admins WHERE username = ?", (username,))
+    if not cur.fetchone():
+        flash("Admin account not found.", "danger")
+        return redirect(url_for("admin"))
+    
     db.execute("DELETE FROM admins WHERE username = ?", (username,))
     db.commit()
     logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' deleted admin account '{username}'")
-    flash(f"Admin account '{username}' deleted.", "success")
+    flash(f"Admin account deleted.", "success")
     return redirect(url_for("admin"))
 
 
@@ -641,6 +653,7 @@ def export_sort_key(row):
 
 @app.route("/admin/download_meal_signups/<week_start>")
 @admin_required
+@limiter.limit("30 per minute")
 def admin_download_meal_signups_week(week_start):
     # Validate date format to prevent injection
     try:
@@ -672,19 +685,20 @@ def admin_download_meal_signups_week(week_start):
         writer.writerow([row["date"], row["meal_type"], name])
     csv_content = output.getvalue()
     output.close()
+    # Sanitize filename - week_start is already validated as YYYY-MM-DD format
+    safe_filename = f"meal_signups_{week_start_date.strftime('%Y-%m-%d')}.csv"
     return Response(
         csv_content,
         mimetype="text/csv",
         headers={
-            "Content-disposition": "attachment; filename=meal_signups_"
-            + week_start
-            + ".csv"
+            "Content-Disposition": f"attachment; filename={safe_filename}"
         },
     )
 
 
 @app.route("/admin/download_all_meal_signups")
 @admin_required
+@limiter.limit("10 per minute")
 def admin_download_all_meal_signups():
     db = get_db()
     cur = db.execute(
@@ -923,6 +937,7 @@ def admin():
 
 @app.route("/admin/settings", methods=["POST"])
 @admin_required
+@limiter.limit("20 per minute")
 def admin_settings():
     db = get_db()
     manual_status = request.form.get("manual_status", "auto").strip()
@@ -1034,8 +1049,11 @@ def guest_login():
 
 
 @app.route("/logout")
+@login_required
 def logout():
+    user_netid = session.get("netid", "unknown")
     session.clear()
+    logging.info(f"Security: User '{user_netid}' logged out")
     flash("Logged out.", "info")
     return redirect(url_for("login"))
 
@@ -1470,6 +1488,8 @@ def reserve():
 
 @app.route("/meal_counts")
 @login_required
+@csrf.exempt  # AJAX GET request doesn't need CSRF protection
+@limiter.limit("60 per minute")
 def meal_counts():
     today = date.today()
     next_monday = today - timedelta(days=today.weekday()) + timedelta(days=7)
@@ -1600,11 +1620,12 @@ def admin_add_user():
             skipped.append(netid)
     db.commit()
     
-    msg = f"Added users: {', '.join(added)}." if added else "No users added."
+    # Build message with counts only to avoid reflecting user input
+    msg = f"Added {len(added)} user(s)." if added else "No users added."
     if skipped:
-        msg += f" Skipped (already exist): {', '.join(skipped)}."
+        msg += f" Skipped {len(skipped)} (already exist)."
     if invalid_netids:
-        msg += f" Invalid format: {', '.join(invalid_netids)}."
+        msg += f" Invalid format: {len(invalid_netids)}."
     flash(msg, "success" if added else "warning")
     return redirect(url_for("admin"))
 
@@ -1642,8 +1663,9 @@ def admin_delete_user():
         else:
             not_found.append(netid)
     db.commit()
+    # Use counts to avoid reflecting user input in flash messages
     flash(
-        f"Deleted: {', '.join(deleted)}. Not found: {', '.join(not_found)}", "success"
+        f"Deleted {len(deleted)} user(s). Not found: {len(not_found)}.", "success"
     )
     return redirect(url_for("admin"))
 
@@ -1757,9 +1779,10 @@ def admin_add_reservation():
             flash("No valid NetIDs provided.", "danger")
             return redirect(url_for("admin"))
         
-        # Check if meal slot exists
-        cur = db.execute("SELECT id FROM meal_slots WHERE id = ?", (meal_slot_id_int,))
-        if not cur.fetchone():
+        # Check if meal slot exists and get its date
+        cur = db.execute("SELECT id, date FROM meal_slots WHERE id = ?", (meal_slot_id_int,))
+        slot_info = cur.fetchone()
+        if not slot_info:
             flash("Meal slot not found.", "danger")
             return redirect(url_for("admin"))
         
@@ -1779,8 +1802,21 @@ def admin_add_reservation():
                 skipped.append(netid)
         
         db.commit()
+        
+        # Invalidate caches after adding reservations
+        slot_date = datetime.strptime(slot_info['date'], "%Y-%m-%d").date()
+        week_start = slot_date - timedelta(days=slot_date.weekday())
+        week_end = week_start + timedelta(days=6)
+        cache.delete_memoized(get_slot_counts, week_start, week_end)
+        for netid in added:
+            cache.delete_memoized(get_user_reservations, netid, week_start, week_end)
+            cache.delete_memoized(get_user_current_meals, netid, week_start, week_end)
+            cache.delete_memoized(check_user_has_pub_current, netid, week_start, week_end)
+            cache.delete_memoized(get_manual_pub_info, netid, week_start, week_end)
+        
+        # Use counts to avoid reflecting user input in flash messages
         flash(
-            f"Added reservations for: {', '.join(added)}. Skipped: {', '.join(skipped)}",
+            f"Added {len(added)} reservation(s). Skipped {len(skipped)} (already exist).",
             "success",
         )
         
@@ -1795,17 +1831,41 @@ def admin_add_reservation():
 @admin_required
 @limiter.limit("30 per minute")
 def admin_delete_reservation(reservation_id):
+    # Validate reservation_id is within reasonable bounds
+    MAX_RESERVATION_ID = 10000000  # 10 million
+    if reservation_id <= 0 or reservation_id > MAX_RESERVATION_ID:
+        flash("Invalid reservation ID.", "danger")
+        return redirect(url_for("admin"))
+    
     try:
         db = get_db()
         
         # Check if reservation exists before deleting
-        cur = db.execute("SELECT id FROM reservations WHERE id = ?", (reservation_id,))
-        if not cur.fetchone():
+        cur = db.execute("SELECT id, netid, meal_slot_id FROM reservations WHERE id = ?", (reservation_id,))
+        reservation = cur.fetchone()
+        if not reservation:
             flash("Reservation not found.", "danger")
             return redirect(url_for("admin"))
         
+        # Get meal slot info for cache invalidation
+        cur = db.execute("SELECT date FROM meal_slots WHERE id = ?", (reservation['meal_slot_id'],))
+        slot_info = cur.fetchone()
+        
         db.execute("DELETE FROM reservations WHERE id = ?", (reservation_id,))
         db.commit()
+        
+        # Invalidate caches after reservation deletion
+        if slot_info:
+            slot_date = datetime.strptime(slot_info['date'], "%Y-%m-%d").date()
+            week_start = slot_date - timedelta(days=slot_date.weekday())
+            week_end = week_start + timedelta(days=6)
+            cache.delete_memoized(get_slot_counts, week_start, week_end)
+            cache.delete_memoized(get_user_reservations, reservation['netid'], week_start, week_end)
+            cache.delete_memoized(get_user_current_meals, reservation['netid'], week_start, week_end)
+            cache.delete_memoized(check_user_has_pub_current, reservation['netid'], week_start, week_end)
+            cache.delete_memoized(get_manual_pub_info, reservation['netid'], week_start, week_end)
+        
+        logging.info(f"Security: Admin '{session.get('admin_username', 'unknown')}' deleted reservation {reservation_id} for user '{reservation['netid']}'")
         flash("Reservation deleted.", "success")
         
     except Exception as e:
@@ -1821,6 +1881,7 @@ def admin_delete_reservation(reservation_id):
 def parse_markdown(text, content_key=None):
     """Parse basic markdown formatting in text with HTML sanitization."""
     from markupsafe import escape
+    from urllib.parse import urlparse, quote
     
     # First, escape all HTML to prevent XSS
     text = str(escape(text))
@@ -1831,7 +1892,16 @@ def parse_markdown(text, content_key=None):
         url = match.group(2)
         # Only allow http, https, and mailto URLs
         if url.startswith(('http://', 'https://', 'mailto:')):
-            return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{link_text}</a>'
+            # Validate URL structure to prevent javascript: injection via encoded characters
+            try:
+                parsed = urlparse(url)
+                if parsed.scheme not in ('http', 'https', 'mailto'):
+                    return link_text
+                # Escape any remaining special characters in URL
+                safe_url = str(escape(url))
+                return f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer">{link_text}</a>'
+            except Exception:
+                return link_text
         return link_text  # Return just the text if URL is not safe
     
     text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', safe_link, text)

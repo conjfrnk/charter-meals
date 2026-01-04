@@ -1,5 +1,42 @@
 # Changelog
 
+## [v2.0.6] - 2026-01-03
+
+### Security Fixes
+- **Logout Route Protection**: Added `@login_required` decorator to `/logout` endpoint to prevent unauthenticated access and potential session manipulation.
+- **Admin Username Validation**: Added comprehensive validation for admin username parameter in `/admin/delete_admin/<username>` route to prevent injection attacks:
+  - Format validation (alphanumeric, underscores, hyphens only)
+  - Length validation (max 50 characters)
+  - Existence check before deletion
+- **Flash Message XSS Prevention**: Changed flash messages for user operations (`admin_add_user`, `admin_delete_user`, `admin_add_reservation`) to display counts instead of echoing user-provided input, preventing reflected XSS attacks.
+- **URL Validation in Markdown**: Enhanced `parse_markdown()` function with `urlparse` validation to prevent `javascript:` injection via encoded characters in markdown links.
+- **Rate Limiting Additions**: Added rate limiting to additional sensitive endpoints:
+  - `/meal_counts`: 60 per minute
+  - `/admin/settings`: 20 per minute
+  - `/admin/download_meal_signups/<week_start>`: 30 per minute
+  - `/admin/download_all_meal_signups`: 10 per minute
+- **Reservation ID Bounds Check**: Added upper bound validation (max 10M) for reservation IDs in `/admin/delete_reservation` to prevent integer overflow attacks.
+- **Content-Disposition Header Sanitization**: Fixed CSV download to use sanitized date from parsed datetime object instead of raw URL parameter.
+
+### Bug Fixes
+- **Cache Invalidation for Admin Reservations**: Added comprehensive cache invalidation when admins add or delete reservations:
+  - `get_slot_counts`
+  - `get_user_reservations`
+  - `get_user_current_meals`
+  - `check_user_has_pub_current`
+  - `get_manual_pub_info`
+
+### Security Logging
+- Added security logging for:
+  - User logout events
+  - Admin reservation deletions (with user and slot info)
+
+### Code Quality
+- Added `@csrf.exempt` decorator to `/meal_counts` endpoint (AJAX GET requests don't need CSRF protection).
+- Improved error messages to avoid reflecting user input.
+
+---
+
 ## [v2.0.5] - 2026-01-03
 
 ### Security Fixes
