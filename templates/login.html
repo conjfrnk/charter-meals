@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block content %}
 <h2 class="login-header">Login</h2>
-<form method="POST" action="{{ url_for('login') }}" role="form">
+<form method="POST" action="{{ url_for('auth.login') }}" role="form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="netid" class="mobile-hide">NetID:</label>
   <!-- Removed restrictive pattern attribute -->
@@ -9,7 +9,7 @@
   <button type="submit">Login</button>
 </form>
 <br>
-<form method="POST" action="{{ url_for('guest_login') }}">
+<form method="POST" action="{{ url_for('auth.guest_login') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <button type="submit">Proceed as Guest</button>
 </form>

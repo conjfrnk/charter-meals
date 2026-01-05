@@ -1,5 +1,13 @@
 # Changelog
 
+## [v2.1.1] - 2026-01-05
+
+### Bug Fixes
+- **Redirect Loop Fix**: Fixed infinite redirect loop on login pages caused by `before_request` session validation running on auth routes. Added skip list for `auth.login`, `auth.admin_login`, `auth.guest_login`, `static`, and `health_check` endpoints.
+- **Template Endpoint Names**: Updated all templates to use blueprint-prefixed endpoint names (e.g., `auth.login` instead of `login`, `admin.admin_dashboard` instead of `admin`).
+
+---
+
 ## [v2.1.0] - 2026-01-05
 
 ### Major Refactoring - Codebase Modularization

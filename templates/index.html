@@ -59,7 +59,7 @@
     </div>
   {% endif %}
   <!-- Set data-max-meals to 2 always -->
-  <form id="mealForm" method="POST" action="{{ url_for('reserve') }}" role="form" data-max-meals="2">
+  <form id="mealForm" method="POST" action="{{ url_for('main.reserve') }}" role="form" data-max-meals="2">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% for day, slots in slots_by_date|dictsort %}
       <h4>{{ day }} ({{ day|dayname }})</h4>

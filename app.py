@@ -158,7 +158,18 @@ def display_date_filter(date_str):
 # ---------------------------
 @app.before_request
 def before_request_handler():
-    # Validate session first
+    # Skip session validation for auth routes and static files to prevent redirect loops
+    skip_endpoints = {
+        "auth.login",
+        "auth.admin_login",
+        "auth.guest_login",
+        "static",
+        "health_check",
+    }
+    if request.endpoint in skip_endpoints:
+        return None
+
+    # Validate session for all other routes
     valid, redirect_endpoint = validate_session()
     if not valid and redirect_endpoint:
         return redirect(url_for(redirect_endpoint))

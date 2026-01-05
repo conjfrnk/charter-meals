@@ -24,14 +24,14 @@
           {% if session.get('admin_username') %}
             <span>Logged in as Admin: {{ session['admin_username'] }}</span>
             <span class="mobile-break"></span>
-            <a href="{{ url_for('admin_change_password') }}">Change Password</a> |
-            <a href="{{ url_for('admin_logout') }}">Logout</a>
+            <a href="{{ url_for('admin.admin_change_password') }}">Change Password</a> |
+            <a href="{{ url_for('auth.admin_logout') }}">Logout</a>
           {% endif %}
         {% else %}
           {% if session.get('netid') %}
             <span>Logged in as: {{ session['netid'] }}</span>
             <span class="mobile-break"></span>
-            <a href="{{ url_for('logout') }}">Logout</a>
+            <a href="{{ url_for('auth.logout') }}">Logout</a>
           {% endif %}
         {% endif %}
       </div>
