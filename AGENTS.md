@@ -37,14 +37,21 @@ gunicorn -w 4 -b 0.0.0.0:8000 app:app
 
 ## Code Style Guidelines
 
-### Python (app.py)
+### Python
+
+**Module Structure**:
+The codebase is organized into modular components:
+- `app.py` - Flask app initialization, CLI commands, template filters, error handlers
+- `config.py` - Application configuration (secret key, database path, CSP)
+- `extensions.py` - Flask extensions (Talisman, CSRF, limiter, cache, compress)
+- `routes/` - Flask Blueprints for routes
+- `utils/` - Utility functions (database, caching, helpers)
 
 **Import Order** (blank lines between groups):
 1. Standard library: `os`, `re`, `sqlite3`, `logging`, `csv`, `io`, `datetime`, `functools`
 2. Flask/Werkzeug: `flask`, `werkzeug.security`
-3. Security extensions (comment: `# --- Security Extensions ---`): `flask_talisman`, `flask_wtf`, `flask_limiter`
-4. Performance extensions (comment: `# --- Performance Extensions ---`): `flask_compress`, `flask_caching`
-5. Third-party: `zoneinfo`
+3. Local modules: `config`, `extensions`, `utils`, `routes`
+4. Third-party: `zoneinfo`
 
 **Naming Conventions**:
 - Functions/variables: `snake_case` (`get_db`, `user_netid`)
@@ -139,7 +146,19 @@ cache.delete_memoized(get_data, param)
 
 ```
 charter-meals/
-├── app.py              # Main Flask app (~1900 lines)
+├── app.py              # Flask app entry point (~270 lines)
+├── config.py           # Application configuration
+├── extensions.py       # Flask extensions initialization
+├── routes/
+│   ├── __init__.py     # Blueprint registration
+│   ├── auth.py         # Authentication routes & decorators
+│   ├── admin.py        # Admin dashboard & management routes
+│   └── main.py         # User-facing routes (index, reserve)
+├── utils/
+│   ├── __init__.py     # Package exports
+│   ├── db.py           # Database helpers (get_db, init_db, migrations)
+│   ├── cache.py        # Cached data functions
+│   └── helpers.py      # Utility functions (validation, parsing)
 ├── schema.sql          # Database schema with triggers and indexes
 ├── requirements.txt    # Version-pinned dependencies
 ├── secrets.txt         # Secret key (gitignored, min 32 chars)

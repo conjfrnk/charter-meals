@@ -1,5 +1,44 @@
 # Changelog
 
+## [v2.1.0] - 2026-01-05
+
+### Major Refactoring - Codebase Modularization
+
+This release completely restructures the codebase for improved maintainability. The monolithic `app.py` (2,406 lines) has been split into focused modules with clear responsibilities.
+
+#### New File Structure
+```
+charter-meals/
+├── app.py              # Flask app entry point (~300 lines)
+├── config.py           # Application configuration
+├── extensions.py       # Flask extensions initialization
+├── routes/
+│   ├── __init__.py     # Blueprint registration
+│   ├── auth.py         # Authentication routes & decorators
+│   ├── admin.py        # Admin dashboard & management routes
+│   └── main.py         # User-facing routes (index, reserve)
+├── utils/
+│   ├── __init__.py     # Package marker
+│   ├── db.py           # Database helpers (get_db, init_db, migrations)
+│   ├── cache.py        # Cached data functions
+│   └── helpers.py      # Utility functions (validation, parsing)
+```
+
+#### Architecture Changes
+- **Flask Blueprints**: Routes are now organized using Flask Blueprints (`auth`, `admin`, `main`)
+- **Separation of Concerns**: Each module has a single, clear responsibility
+- **Centralized Configuration**: All config in `config.py`, extensions in `extensions.py`
+- **Reusable Utilities**: Common functions extracted to `utils/` package
+
+#### Internal Endpoint Changes
+Route endpoints now use blueprint prefixes (e.g., `auth.login`, `admin.admin_dashboard`, `main.index`). 
+**URLs remain unchanged** - this only affects internal `url_for()` calls.
+
+#### Deployment
+**No deployment changes required.** The `app:app` entry point remains the same for Gunicorn/WSGI.
+
+---
+
 ## [v2.0.10] - 2026-01-04
 
 ### Security Fixes
