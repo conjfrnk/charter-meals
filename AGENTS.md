@@ -21,7 +21,7 @@ Charter Meals is a Flask web application for managing meal sign-ups for Princeto
 # Development setup
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-flask init-db      # Initialize database with default admin
+flask init-db      # Initialize database with default admin (admin/admin)
 flask migrate-db   # Add missing columns/tables to existing DB
 flask run          # Run development server (requires secrets.txt)
 
@@ -31,21 +31,11 @@ gunicorn -w 4 -b 0.0.0.0:8000 app:app
 
 **Testing**: No formal test framework. Manual testing expected.
 
-**Prerequisites**:
-- Redis running on `localhost:6379` (required for rate limiting)
-- `secrets.txt` file with 32+ character secret key
+**Prerequisites**: Redis on `localhost:6379`, `secrets.txt` with 32+ char secret key.
 
 ## Code Style Guidelines
 
 ### Python
-
-**Module Structure**:
-The codebase is organized into modular components:
-- `app.py` - Flask app initialization, CLI commands, template filters, error handlers
-- `config.py` - Application configuration (secret key, database path, CSP)
-- `extensions.py` - Flask extensions (Talisman, CSRF, limiter, cache, compress)
-- `routes/` - Flask Blueprints for routes
-- `utils/` - Utility functions (database, caching, helpers)
 
 **Import Order** (blank lines between groups):
 1. Standard library: `os`, `re`, `sqlite3`, `logging`, `csv`, `io`, `datetime`, `functools`
@@ -61,15 +51,15 @@ The codebase is organized into modular components:
 
 **Route Pattern**:
 ```python
-@app.route("/path", methods=["GET", "POST"])
-@limiter.limit("10 per minute")  # For login routes
+@bp.route("/path", methods=["GET", "POST"])
+@limiter.limit("10 per minute")  # For login/sensitive routes
 @login_required  # or @admin_required
 def route_name():
     if request.method == "POST":
         value = request.form.get("field", "").strip()
         if not value:
             flash("Field required.", "danger")
-            return redirect(url_for("route_name"))
+            return redirect(url_for("blueprint.route_name"))
         try:
             db = get_db()
             db.execute("INSERT INTO t (col) VALUES (?)", (value,))
@@ -78,7 +68,7 @@ def route_name():
         except Exception as e:
             logging.error(f"Error: {e}")
             flash("An error occurred.", "danger")
-        return redirect(url_for("route_name"))
+        return redirect(url_for("blueprint.route_name"))
     return render_template("template.html")
 ```
 
@@ -86,8 +76,7 @@ def route_name():
 ```python
 db = get_db()
 cur = db.execute("SELECT * FROM table WHERE field = ?", (param,))
-result = cur.fetchone()  # or fetchall()
-# For dict access: result["column_name"]
+result = cur.fetchone()  # or fetchall(); Dict access: result["column_name"]
 ```
 
 **Input Validation** (apply to all user inputs):
@@ -98,38 +87,25 @@ if not value or len(value) > 20 or not re.match(r'^[a-zA-Z0-9_-]+$', value):
     return redirect(url_for("route"))
 ```
 
-**Cached Functions**:
-```python
-@cache.memoize(timeout=60)
-def get_data(param):
-    pass
-
-# Invalidate after data changes
-cache.delete_memoized(get_data, param)
-```
+**Cached Functions**: Use `@cache.memoize(timeout=60)` decorator; invalidate with `cache.delete_memoized(func, param)` after data changes.
 
 ### JavaScript (static/main.js)
 
 - Wrap all code in `DOMContentLoaded` listener
-- Use ES6+ syntax: arrow functions, `const`/`let`, template literals
-- Use `camelCase` for variables/functions
-- Use `dataset` attributes for DOM data (`element.dataset.tab`)
-- Use `localStorage` for UI state persistence
-- Add loading states to forms on submit
+- ES6+ syntax: arrow functions, `const`/`let`, template literals
+- `camelCase` for variables/functions; `dataset` for DOM data
+- `localStorage` for UI state persistence; loading states on form submit
 
 ### CSS (static/style.css)
 
 - BEM-like naming: `.header-left`, `.footer-blurb`, `.tabcontent`
-- Mobile-first with `@media` queries
-- Dark mode: `@media (prefers-color-scheme: dark)`
+- Mobile-first with `@media` queries; dark mode support
 - Colors: Primary `#561C1D` (burgundy), Accent `#C5A144` (gold)
-- Global reset at top of file
 
 ### Templates (Jinja2)
 
 - Inheritance: `{% extends "layout.html" %}`, `{% block content %}`
-- CSRF in all forms: `{{ csrf_token() }}`
-- Custom filters: `{{ value|filter_name }}`
+- CSRF in all forms: `{{ csrf_token() }}`; filters: `{{ value|filter_name }}`
 - Asset versioning: `{{ asset_url_for('filename.css') }}`
 
 ## Security Requirements
@@ -144,57 +120,33 @@ cache.delete_memoized(get_data, param)
 
 ## File Structure
 
-```
-charter-meals/
-├── app.py              # Flask app entry point (~270 lines)
-├── config.py           # Application configuration
-├── extensions.py       # Flask extensions initialization
-├── routes/
-│   ├── __init__.py     # Blueprint registration
-│   ├── auth.py         # Authentication routes & decorators
-│   ├── admin.py        # Admin dashboard & management routes
-│   └── main.py         # User-facing routes (index, reserve)
-├── utils/
-│   ├── __init__.py     # Package exports
-│   ├── db.py           # Database helpers (get_db, init_db, migrations)
-│   ├── cache.py        # Cached data functions
-│   └── helpers.py      # Utility functions (validation, parsing)
-├── schema.sql          # Database schema with triggers and indexes
-├── requirements.txt    # Version-pinned dependencies
-├── secrets.txt         # Secret key (gitignored, min 32 chars)
-├── VERSION             # Version number for cache busting
-├── CHANGELOG.md        # Version history
-├── rc.d/gunicorn_charter  # OpenBSD service script
-├── static/
-│   ├── main.js         # Frontend JavaScript
-│   ├── style.css       # Styles with dark mode
-│   └── pcc_logo.png
-└── templates/
-    ├── layout.html     # Base template
-    ├── index.html      # Main meal signup
-    ├── login.html, admin.html, admin_login.html, admin_change_password.html
-```
+- `app.py` - Flask app, CLI commands, template filters, error handlers
+- `config.py` - Configuration (secret key, database path, CSP)
+- `extensions.py` - Flask extensions (Talisman, CSRF, limiter, cache, compress)
+- `routes/` - Blueprints: `auth.py` (login/decorators), `admin.py`, `main.py`
+- `utils/` - Helpers: `db.py` (get_db, init_db), `cache.py`, `helpers.py`
+- `schema.sql` - Database schema with triggers and indexes
+- `static/` - main.js, style.css, pcc_logo.png
+- `templates/` - Jinja2 templates (layout.html, index.html, admin.html)
+- `requirements.txt` - Version-pinned dependencies
+- `secrets.txt` - Secret key (gitignored, min 32 chars)
+- `VERSION` - Version number for cache busting
 
 ## Key Patterns
 
 **Flash Messages**: `"success"` (green), `"danger"` (red), `"warning"` (yellow), `"info"` (blue)
 
-**CLI Commands**:
-```python
-@app.cli.command("command-name")
-def command_name_command():
-    """Docstring shown in --help."""
-    pass
-```
+**CLI Commands**: Use `@app.cli.command("name")` with `*_command` suffix functions.
 
-**Error Handlers**: Return redirects with flash messages (401, 404, 500)
+**Error Handlers**: Return redirects with flash messages (401, 403, 404, 429, 500)
 
 **Decorators**: `@login_required` for users, `@admin_required` for admin routes
 
 ## Development Notes
 
-1. Database paths: `meals.db` (dev) vs `/var/www/data/meals.db` (prod)
-2. Timezone: US Eastern (`ZoneInfo("America/New_York")`)
-3. Static assets use VERSION file for cache busting
-4. Meal slots auto-generate weekly via `generate_next_week_meal_slots()`
-5. Pub nights: Tuesday/Thursday dinners with special reservation rules
+- Database paths: `meals.db` (dev) vs `/var/www/data/meals.db` (prod)
+- Timezone: US Eastern (`ZoneInfo("America/New_York")`)
+- Static assets use VERSION file for cache busting
+- Meal slots auto-generate weekly via `generate_next_week_meal_slots()`
+- Pub nights: Tuesday/Thursday dinners with special reservation rules
+- Transaction safety: Use `BEGIN IMMEDIATE` for reservation operations
