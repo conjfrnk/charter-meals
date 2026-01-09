@@ -30,6 +30,7 @@ def init_extensions(app, csp):
         force_https=False,
         strict_transport_security=True,
         strict_transport_security_max_age=31536000,
+        strict_transport_security_include_subdomains=True,
     )
     
     # CSRF protection

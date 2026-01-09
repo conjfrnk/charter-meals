@@ -310,6 +310,7 @@ def admin_settings():
 # ---------------------------
 @admin_bp.route("/change_password", methods=["GET", "POST"])
 @admin_required
+@limiter.limit("5 per minute")
 def admin_change_password():
     if request.method == "POST":
         current = request.form.get("current_password", "").strip()
@@ -392,10 +393,12 @@ def admin_add_admin():
     return redirect(url_for("admin.admin_dashboard"))
 
 
-@admin_bp.route("/delete_admin/<username>", methods=["POST"])
+@admin_bp.route("/delete_admin", methods=["POST"])
 @admin_required
 @limiter.limit("10 per minute")
-def admin_delete_admin(username):
+def admin_delete_admin():
+    username = request.form.get("delete_admin_username", "").strip()
+    
     if not username or len(username) > 50 or not re.match(r"^[a-zA-Z0-9_-]+$", username):
         flash("Invalid username format.", "danger")
         return redirect(url_for("admin.admin_dashboard"))

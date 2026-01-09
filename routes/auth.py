@@ -2,15 +2,20 @@
 
 import re
 import logging
+import secrets
 from datetime import datetime, timedelta
 from functools import wraps
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_limiter.util import get_remote_address
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import limiter
 from utils.db import get_db
+
+
+# Dummy hash for timing attack mitigation - generated once at import
+_DUMMY_HASH = generate_password_hash("dummy_password_for_timing", method="pbkdf2:sha256")
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -148,7 +153,7 @@ def guest_login():
     return redirect(url_for("main.index"))
 
 
-@auth_bp.route("/logout")
+@auth_bp.route("/logout", methods=["POST"])
 @login_required
 @limiter.limit("10 per minute")
 def logout():
@@ -182,7 +187,13 @@ def admin_login():
             db = get_db()
             cur = db.execute("SELECT * FROM admins WHERE username = ?", (username,))
             admin = cur.fetchone()
-            if admin and check_password_hash(admin["password"], password):
+            
+            # Timing attack mitigation: always perform password check
+            # Use dummy hash when user doesn't exist to ensure constant-time response
+            stored_hash = admin["password"] if admin else _DUMMY_HASH
+            password_valid = check_password_hash(stored_hash, password)
+            
+            if admin and password_valid:
                 # Regenerate session to prevent session fixation
                 session.clear()
                 session["admin_username"] = username
@@ -205,7 +216,7 @@ def admin_login():
     return render_template("admin_login.html")
 
 
-@auth_bp.route("/admin/logout")
+@auth_bp.route("/admin/logout", methods=["POST"])
 @admin_required
 @limiter.limit("10 per minute")
 def admin_logout():

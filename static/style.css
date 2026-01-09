@@ -1131,6 +1131,32 @@ button:hover, input[type="submit"]:hover, a.button:hover {
   display: inline;
 }
 
+/* Logout button styled as a link */
+.inline-logout-form {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+.logout-link {
+  background: none !important;
+  border: none !important;
+  color: #C5A144 !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+  font-size: inherit !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline !important;
+  width: auto !important;
+}
+
+.logout-link:hover {
+  text-decoration: underline !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 .fade-out {
   opacity: 0;
   transition: opacity 0.5s;

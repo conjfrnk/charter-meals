@@ -338,56 +338,62 @@ def reserve():
     }
     to_add = selected_slots - set(current_reservations.keys())
 
-    for slot_id in to_delete:
-        try:
+    # Use BEGIN IMMEDIATE to get an exclusive lock and prevent race conditions
+    try:
+        db.execute("BEGIN IMMEDIATE")
+    except sqlite3.OperationalError as e:
+        logging.error(f"Failed to begin transaction: {e}")
+        flash("Server busy. Please try again.", "danger")
+        return redirect(url_for("main.index"))
+
+    try:
+        for slot_id in to_delete:
             db.execute(
                 "DELETE FROM reservations WHERE netid = ? AND meal_slot_id = ?",
                 (user_netid, slot_id),
             )
-        except Exception as e:
-            logging.error(f"Error deleting reservation for slot {slot_id}: {e}")
-            flash("Error deleting reservation. Please try again.", "danger")
-            return redirect(url_for("main.index"))
-    for slot_id in to_add:
-        try:
+        
+        for slot_id in to_add:
             cur = db.execute("SELECT * FROM meal_slots WHERE id = ?", (slot_id,))
             meal_slot = cur.fetchone()
             if not meal_slot:
+                db.execute("ROLLBACK")
                 flash("Meal slot not found.", "danger")
                 return redirect(url_for("main.index"))
+            
             cur = db.execute(
                 "SELECT COUNT(*) as count FROM reservations WHERE meal_slot_id = ?",
                 (slot_id,),
             )
             count = cur.fetchone()["count"]
             if count >= meal_slot["capacity"]:
+                db.execute("ROLLBACK")
                 flash(
                     f"{meal_slot['meal_type'].capitalize()} on {meal_slot['date']} is already full.",
                     "danger",
                 )
                 return redirect(url_for("main.index"))
+            
             db.execute(
                 "INSERT INTO reservations (netid, meal_slot_id, timestamp) VALUES (?, ?, ?)",
                 (user_netid, slot_id, server_timestamp),
             )
-        except sqlite3.IntegrityError as e:
-            if "full" in str(e).lower():
-                flash("The meal slot became full. Please try again.", "danger")
-            else:
-                logging.error(f"Integrity error adding reservation for slot {slot_id}: {e}")
-                flash("Error adding reservation. Please try again.", "danger")
-            return redirect(url_for("main.index"))
-        except Exception as e:
-            logging.error(f"Error adding reservation for slot {slot_id}: {e}")
+        
+        db.execute("COMMIT")
+    except sqlite3.IntegrityError as e:
+        db.execute("ROLLBACK")
+        if "full" in str(e).lower():
+            flash("The meal slot became full. Please try again.", "danger")
+        else:
+            logging.error(f"Integrity error adding reservation: {e}")
             flash("Error adding reservation. Please try again.", "danger")
-            return redirect(url_for("main.index"))
-    try:
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logging.error(f"Database commit failed: {e}")
-        flash("Error saving reservations. Please try again.", "danger")
         return redirect(url_for("main.index"))
+    except Exception as e:
+        db.execute("ROLLBACK")
+        logging.error(f"Error processing reservation: {e}")
+        flash("Error processing reservation. Please try again.", "danger")
+        return redirect(url_for("main.index"))
+    
     flash("Reservations updated successfully.", "success")
 
     # Invalidate caches after reservation changes

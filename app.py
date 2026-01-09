@@ -153,6 +153,18 @@ def display_date_filter(date_str):
         return "Unknown Date"
 
 
+@app.template_filter("safe_url")
+def safe_url_filter(url):
+    """Validate and return URL only if it's safe (http/https/mailto), otherwise return empty string."""
+    if not url:
+        return ""
+    url = str(url).strip()
+    # Only allow http, https, and mailto URLs
+    if url.startswith(("http://", "https://", "mailto:")):
+        return url
+    return ""
+
+
 # ---------------------------
 # Before Request Handler
 # ---------------------------
@@ -163,6 +175,8 @@ def before_request_handler():
         "auth.login",
         "auth.admin_login",
         "auth.guest_login",
+        "auth.logout",
+        "auth.admin_logout",
         "static",
         "health_check",
     }

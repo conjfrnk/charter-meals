@@ -9,8 +9,9 @@
   {{ website_content.get('feedback_text', 'If you have any feedback on this website, please fill out this form. Thanks! -Connor')|safe }}
 </p>
 <p>
-  {% if website_content.get('feedback_link') %}
-    <a target="_blank" rel="noopener noreferrer" href="{{ website_content.get('feedback_link') }}">Feedback Form Link</a>.
+  {% set feedback_url = website_content.get('feedback_link', '')|safe_url %}
+  {% if feedback_url %}
+    <a target="_blank" rel="noopener noreferrer" href="{{ feedback_url }}">Feedback Form Link</a>.
   {% endif %}
 </p>
 
