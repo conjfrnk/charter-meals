@@ -1,17 +1,15 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.
 
-## Quick Start
-
-See ONBOARDING.md for 5-minute developer setup. Key commands:
+## Quick Reference
 
 ```bash
-# Setup
+# Development setup (see ONBOARDING.md for details)
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -c "import secrets; print(secrets.token_urlsafe(32))" > secrets.txt
-redis-server &              # Required - not optional
+redis-server &              # Required for rate limiting
 flask init-db               # Creates DB with default admin (admin/admin)
 flask run                   # Development server
 
@@ -32,17 +30,18 @@ app.py              # Entry point, CLI commands, template filters, error handler
 config.py           # Configuration, CSP headers, secret key loading
 extensions.py       # Flask extensions (Talisman, CSRF, Limiter, Cache, Compress)
 routes/
-  auth.py           # Login/logout, @login_required and @admin_required decorators
-  main.py           # User-facing: index, meal reservations
+  auth.py           # Login/logout (POST-only), @login_required, @admin_required
+  main.py           # User-facing: index, meal reservations, /health endpoint
   admin.py          # Admin dashboard: users, reservations, settings, content, purge
 utils/
   db.py             # get_db(), init_db(), migrations, schema parsing
   cache.py          # Memoized cache functions with invalidation helpers
   helpers.py        # CSV validation, markdown parsing, sorting utilities
 schema.sql          # Database schema with triggers and indexes
+rc.d/               # OpenBSD init scripts for production
 ```
 
-**Tech Stack:** Flask 2.3+, SQLite, Redis (Flask-Caching), Jinja2, vanilla JS
+**Tech Stack:** Python 3.9+, Flask 2.3+, SQLite, Redis (rate limiting), Jinja2, vanilla JS
 
 ## Security Requirements
 
@@ -133,10 +132,9 @@ cache.delete_memoized(function_name, param)
 ## Code Style
 
 **Python imports** (with blank lines between groups):
-1. Standard library
-2. Flask/Werkzeug
-3. Local modules
-4. Third-party
+1. Standard library (`os`, `re`, `sqlite3`, `logging`, `datetime`, `zoneinfo`, `threading`)
+2. Flask/Werkzeug (`flask`, `werkzeug.security`)
+3. Local modules (`config`, `extensions`, `utils`, `routes`)
 
 **Flash message categories:** `"success"`, `"danger"`, `"warning"`, `"info"`
 
@@ -145,9 +143,11 @@ cache.delete_memoized(function_name, param)
 - Template filters: `*_filter` suffix
 - CLI commands: `*_command` suffix
 
-## Additional Documentation
+## Related Documentation
 
-- AGENTS.md - AI coding guidelines, detailed style guide
-- ONBOARDING.md - Quick-start setup guide
-- README.md - User/admin documentation
-- CHANGELOG.md - Version history
+| File | Purpose |
+|------|---------|
+| `ONBOARDING.md` | Full developer setup guide |
+| `README.md` | User/admin documentation, troubleshooting |
+| `CHANGELOG.md` | Version history and security fixes |
+| `AGENTS.md` | Extended AI coding guidelines |

@@ -323,7 +323,7 @@ This forces pip to compile `zstandard` from source using the local C compiler, p
 
 ---
 
-## [v2.0.0] - 2024-01-XX
+## [v2.0.0] - 2025-12-XX
 
 ### Major Improvements
 
@@ -446,7 +446,7 @@ This forces pip to compile `zstandard` from source using the local C compiler, p
 ### Installation
 
 #### New Installation Requirements
-- Python 3.8 or higher
+- Python 3.9 or higher (required for `zoneinfo` module)
 - Redis server for caching and rate limiting
 - Minimum 512MB RAM
 - 1GB free storage space

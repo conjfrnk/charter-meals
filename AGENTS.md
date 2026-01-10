@@ -1,6 +1,6 @@
 # AGENTS.md - Charter Meals Codebase Guide
 
-Guidelines for AI coding agents working in this repository.
+Extended guidelines for AI coding agents. See also: CLAUDE.md (quick reference), ONBOARDING.md (setup).
 
 ## Project Overview
 
@@ -8,12 +8,12 @@ Charter Meals is a Flask web application for managing meal sign-ups for Princeto
 
 | Component | Technology |
 |-----------|------------|
-| Backend | Python 3.8+, Flask 2.3+ |
+| Backend | Python 3.9+, Flask 2.3+ |
 | Database | SQLite with parameterized queries |
-| Caching | Redis (Flask-Caching) |
+| Rate Limiting/Caching | Redis (Flask-Limiter, Flask-Caching) |
 | Templates | Jinja2 |
 | Frontend | Vanilla JavaScript (ES6+), CSS3 |
-| WSGI Server | Gunicorn (production) |
+| WSGI Server | Gunicorn (production on OpenBSD) |
 
 ## Build/Run Commands
 
@@ -38,10 +38,9 @@ gunicorn -w 4 -b 0.0.0.0:8000 app:app
 ### Python
 
 **Import Order** (blank lines between groups):
-1. Standard library: `os`, `re`, `sqlite3`, `logging`, `csv`, `io`, `datetime`, `functools`
+1. Standard library: `os`, `re`, `sqlite3`, `logging`, `csv`, `io`, `datetime`, `functools`, `threading`, `zoneinfo`
 2. Flask/Werkzeug: `flask`, `werkzeug.security`
 3. Local modules: `config`, `extensions`, `utils`, `routes`
-4. Third-party: `zoneinfo`
 
 **Naming Conventions**:
 - Functions/variables: `snake_case` (`get_db`, `user_netid`)
@@ -120,14 +119,15 @@ if not value or len(value) > 20 or not re.match(r'^[a-zA-Z0-9_-]+$', value):
 
 ## File Structure
 
-- `app.py` - Flask app, CLI commands, template filters, error handlers
+- `app.py` - Flask app, CLI commands, template filters, error handlers, /health endpoint
 - `config.py` - Configuration (secret key, database path, CSP)
 - `extensions.py` - Flask extensions (Talisman, CSRF, limiter, cache, compress)
-- `routes/` - Blueprints: `auth.py` (login/decorators), `admin.py`, `main.py`
+- `routes/` - Blueprints: `auth.py` (login/logout POST-only, decorators), `admin.py`, `main.py`
 - `utils/` - Helpers: `db.py` (get_db, init_db), `cache.py`, `helpers.py`
 - `schema.sql` - Database schema with triggers and indexes
 - `static/` - main.js, style.css, pcc_logo.png
 - `templates/` - Jinja2 templates (layout.html, index.html, admin.html)
+- `rc.d/` - OpenBSD init scripts (`gunicorn_charter`)
 - `requirements.txt` - Version-pinned dependencies
 - `secrets.txt` - Secret key (gitignored, min 32 chars)
 - `VERSION` - Version number for cache busting

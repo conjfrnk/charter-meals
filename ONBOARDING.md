@@ -28,11 +28,11 @@ Default admin: `admin` / `admin` (change immediately at `/admin/login`)
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Python 3.8+, Flask 2.3+ |
+| Backend | Python 3.9+, Flask 2.3+ |
 | Database | SQLite (parameterized queries only) |
-| Cache | Redis + Flask-Caching |
+| Cache/Rate Limiting | Redis + Flask-Caching + Flask-Limiter |
 | Frontend | Jinja2, Vanilla JS, CSS3 |
-| Production | Gunicorn |
+| Production | Gunicorn (OpenBSD with rc.d scripts) |
 
 ## File Structure
 
@@ -42,16 +42,17 @@ charter-meals/
 ├── config.py           # Configuration (secret key, DB path, CSP)
 ├── extensions.py       # Flask extensions init
 ├── routes/
-│   ├── auth.py         # Login, logout, decorators (@login_required, @admin_required)
+│   ├── auth.py         # Login/logout (POST-only), decorators
 │   ├── admin.py        # Admin dashboard routes
-│   └── main.py         # User-facing routes (index, reserve)
+│   └── main.py         # User-facing routes (index, reserve, /health)
 ├── utils/
 │   ├── db.py           # get_db(), init_db(), migrations
 │   ├── cache.py        # Cached data functions
 │   └── helpers.py      # Validation, parsing utilities
 ├── static/             # main.js, style.css, pcc_logo.png
 ├── templates/          # Jinja2 templates
-├── schema.sql          # Database schema
+├── schema.sql          # Database schema with triggers
+├── rc.d/               # OpenBSD init scripts (gunicorn_charter)
 ├── secrets.txt         # Secret key (gitignored)
 └── VERSION             # Version for cache busting
 ```
@@ -177,9 +178,57 @@ Use categories: `"success"` (green), `"danger"` (red), `"warning"` (yellow), `"i
 
 ## Production Deployment
 
+**Standard:**
 ```bash
 export FLASK_ENV=production
 gunicorn -w 4 -b 0.0.0.0:8000 app:app
 ```
 
-Entry point remains `app:app` for Gunicorn/WSGI.
+**OpenBSD (chartermeals.com):**
+```bash
+# The rc.d/gunicorn_charter script handles production deployment
+# Copy to /etc/rc.d/ and enable with: rcctl enable gunicorn_charter
+doas rcctl start gunicorn_charter
+doas rcctl restart gunicorn_charter
+```
+
+Production paths: `/var/www/htdocs/www.chartermeals.com`, `/var/www/data/meals.db`
+
+Entry point is `app:app` for Gunicorn/WSGI.
+
+## Maintenance Handoff Checklist
+
+For new maintainers taking over this project:
+
+### Access Requirements
+- [ ] SSH access to production server (OpenBSD)
+- [ ] GitHub repository access
+- [ ] Domain registrar access (chartermeals.com)
+- [ ] Club administrator contact for user lists
+
+### First-Time Setup
+- [ ] Clone repository and set up local dev environment
+- [ ] Verify you can run the app locally
+- [ ] Obtain production `secrets.txt` from outgoing maintainer
+- [ ] Test SSH access to production server
+
+### Semester Workflow
+1. **Start of semester**: Upload new user CSV via admin panel
+2. **Weekly**: Meal slots auto-generate; monitor via admin dashboard
+3. **End of semester**: Use Purge tab to archive data, download archive
+
+### Critical Files to Understand
+1. `routes/main.py` - User-facing reservation logic
+2. `routes/admin.py` - Admin dashboard functionality
+3. `schema.sql` - Database structure and triggers
+4. `rc.d/gunicorn_charter` - Production service management
+
+### Emergency Procedures
+- **App down**: `doas rcctl restart gunicorn_charter`
+- **Database issues**: Check `/var/www/data/meals.db`, run `flask migrate-db`
+- **Redis issues**: `redis-cli ping` (should return PONG)
+- **Logs**: Check application logs for errors
+
+### Key Contacts
+- Kitchen managers: Tiffany and Hector (for meal-related questions)
+- Club officers: For user list updates and policy changes

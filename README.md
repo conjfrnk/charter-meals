@@ -147,7 +147,7 @@
 ## Installation & Deployment
 
 ### Prerequisites
-- Python 3.8 or higher
+- Python 3.9 or higher (required for `zoneinfo` module)
 - Redis server (for rate limiting and caching)
 - SQLite (included with Python)
 
@@ -208,6 +208,38 @@
    ```bash
    gunicorn -w 4 -b 0.0.0.0:8000 app:app
    ```
+
+### OpenBSD Deployment (chartermeals.com)
+
+The production server runs on OpenBSD. An init script is provided:
+
+1. **Copy the init script:**
+   ```bash
+   doas cp rc.d/gunicorn_charter /etc/rc.d/
+   doas chmod 755 /etc/rc.d/gunicorn_charter
+   ```
+
+2. **Enable and start the service:**
+   ```bash
+   doas rcctl enable gunicorn_charter
+   doas rcctl start gunicorn_charter
+   ```
+
+3. **Service management:**
+   ```bash
+   doas rcctl restart gunicorn_charter  # Restart after updates
+   doas rcctl stop gunicorn_charter     # Stop service
+   ```
+
+**Production paths:**
+- Application: `/var/www/htdocs/www.chartermeals.com`
+- Database: `/var/www/data/meals.db`
+- Virtual environment: `charter_env` (within application directory)
+
+**Note:** If you rebuild the virtualenv on OpenBSD, reinstall `zstandard` from source:
+```bash
+pip install --no-binary :all: zstandard
+```
 
 ### System Requirements
 
